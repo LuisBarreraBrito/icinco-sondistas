@@ -212,6 +212,20 @@
     </button>
   </div>
 
+  <!-- Fotos -->
+  <div class="section">
+    <div class="section-title">Foto del sondeo</div>
+    <div class="field">
+      <label>Adjuntar foto (opcional)</label>
+      <input type="file" id="inp-foto" accept="image/*" capture="environment" onchange="onFotoChange(this)"
+        style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:10px 14px;font-family:var(--fb);font-size:13px;cursor:pointer;">
+    </div>
+    <div id="foto-preview" style="display:none;margin-top:10px;">
+      <img id="foto-img" style="width:100%;max-height:200px;object-fit:cover;border:1px solid var(--border);">
+      <button onclick="clearFoto()" style="margin-top:6px;background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;font-family:var(--fb);font-size:11px;cursor:pointer;width:100%;">✕ Quitar foto</button>
+    </div>
+  </div>
+
   <!-- Incidencias -->
   <div class="section">
     <div class="section-title">Incidencias</div>
@@ -305,77 +319,40 @@ function addSondeo() {
   const div = document.createElement('div');
   div.className = 'sondeo-card';
   div.dataset.id = sondeoCount;
-  div.innerHTML = buildSondeoHTML(sondeoCount, 'sondeo');
-  container.appendChild(div);
-  loadCota(div, `S${sondeoCount}`);
-}
-
-function buildSondeoHTML(n, tipo) {
-  const colorMap = { sondeo: 'var(--blue)', barrena: 'var(--accent)', dpsh: '#a855f7' };
-  const color = colorMap[tipo] || 'var(--blue)';
-
-  const camposHTML = tipo === 'barrena'
-    ? `<div class="cotas-row" style="grid-template-columns:1fr 1fr 1fr;">
-        <div class="cota-field">
-          <label>Nº barrenas</label>
-          <input type="number" min="1" step="1" class="inp-num-barr" placeholder="0" oninput="calcBarrenas(this)">
-        </div>
-        <div class="cota-field">
-          <label>Long. cada una (m)</label>
-          <input type="number" step="0.5" min="0.5" class="inp-long-barr" placeholder="3" oninput="calcBarrenas(this)">
-        </div>
-        <div class="cota-field">
-          <label>Total metros</label>
-          <input type="number" class="inp-metros" readonly placeholder="—">
-          <div class="metros-label" style="color:var(--accent);">0 m</div>
-        </div>
-      </div>`
-    : tipo === 'dpsh'
-    ? `<div class="cotas-row" style="grid-template-columns:1fr 1fr;">
-        <div class="cota-field">
-          <label>Profundidad máx. (m)</label>
-          <input type="number" step="0.5" min="0" class="inp-prof-dpsh" placeholder="0" oninput="calcDpsh(this)">
-        </div>
-        <div class="cota-field">
-          <label>Metros</label>
-          <input type="number" class="inp-metros" readonly placeholder="—">
-          <div class="metros-label" style="color:#a855f7;">0 m</div>
-        </div>
-      </div>`
-    : `<div class="cotas-row">
-        <div class="cota-field">
-          <label>Cota inicio (m)</label>
-          <input type="number" step="0.5" min="0" class="inp-inicio" value="0" readonly>
-          <div class="metros-label" style="color:var(--muted);font-size:10px;">Auto</div>
-        </div>
-        <div class="cota-field">
-          <label>Cota final (m)</label>
-          <input type="number" step="0.5" min="0" class="inp-final" placeholder="0" oninput="calcMetros(this)">
-        </div>
-        <div class="cota-field">
-          <label>Metros día</label>
-          <input type="number" class="inp-metros" readonly placeholder="—">
-          <div class="metros-label" style="color:var(--green);">0 m</div>
-        </div>
-      </div>`;
-
-  const labelMap = { sondeo: 'Sondeo rotativo', barrena: 'Barrena', dpsh: 'DPSH' };
-  const prefixMap = { sondeo: `S${n}`, barrena: `B${n}`, dpsh: `DPSH-${n}` };
-
-  return `
+  div.innerHTML = `
     <button class="sondeo-del" onclick="delSondeo(this)">×</button>
     <div class="sondeo-header">
-      <span class="sondeo-num" style="color:${color}">${prefixMap[tipo]}</span>
-      <input class="sondeo-nombre-inp" type="text" placeholder="Nombre" value="${prefixMap[tipo]}"
+      <span class="sondeo-num">S${sondeoCount}</span>
+      <input class="sondeo-nombre-inp" type="text" placeholder="Nombre (S1, S2...)" value="S${sondeoCount}"
         style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;font-family:var(--fb);font-size:14px;outline:none;flex:1;"
         onchange="onNombreChange(this)" onblur="onNombreChange(this)">
       <select class="sondeo-tipo-sel" onchange="onTipoChange(this)">
-        <option value="sondeo" ${tipo==='sondeo'?'selected':''}>Sondeo rotativo</option>
-        <option value="barrena" ${tipo==='barrena'?'selected':''}>Barrena</option>
-        <option value="dpsh" ${tipo==='dpsh'?'selected':''}>DPSH</option>
+        <option value="sondeo">Sondeo rotativo</option>
+        <option value="barrena">Barrena</option>
+        <option value="dpsh">DPSH</option>
       </select>
     </div>
-    ${camposHTML}`;
+    <div class="cotas-row">
+      <div class="cota-field">
+        <label>Cota inicio (m)</label>
+        <input type="number" step="0.5" min="0" class="inp-inicio" value="0" readonly>
+        <div class="metros-label" style="color:var(--muted);font-size:10px;">Auto</div>
+      </div>
+      <div class="cota-field">
+        <label>Cota final (m)</label>
+        <input type="number" step="0.5" min="0" class="inp-final" placeholder="0" oninput="calcMetros(this)">
+      </div>
+      <div class="cota-field">
+        <label>Metros día</label>
+        <input type="number" class="inp-metros" readonly placeholder="—">
+        <div class="metros-label" id="metros-lbl-${sondeoCount}">0 m</div>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+
+  // Cargar cota automáticamente
+  loadCota(div, `S${sondeoCount}`);
 }
 
 function delSondeo(btn) {
@@ -384,37 +361,28 @@ function delSondeo(btn) {
 
 function onTipoChange(sel) {
   const card = sel.closest('.sondeo-card');
-  const tipo = sel.value;
-  const n = card.dataset.id;
-  card.className = 'sondeo-card ' + tipo;
-  card.innerHTML = buildSondeoHTML(n, tipo);
-  // Recargar cota si es sondeo
-  if (tipo === 'sondeo') {
-    const nombre = card.querySelector('.sondeo-nombre-inp').value;
-    loadCota(card, nombre);
-  }
+  card.className = 'sondeo-card ' + sel.value;
+  card.querySelector('.sondeo-num').style.color = sel.value === 'barrena' ? 'var(--accent)' : sel.value === 'dpsh' ? '#a855f7' : 'var(--blue)';
 }
 
 async function onNombreChange(inp) {
   const card = inp.closest('.sondeo-card');
-  const num = card.querySelector('.sondeo-num');
+  const num = inp.closest('.sondeo-header').querySelector('.sondeo-num');
   num.textContent = inp.value || '?';
-  const tipo = card.querySelector('.sondeo-tipo-sel').value;
-  if (tipo === 'sondeo') loadCota(card, inp.value);
+  loadCota(card, inp.value);
 }
 
 async function loadCota(card, sondeoNombre) {
   const sondista = document.getElementById('sel-sondista').value;
   const obra = document.getElementById('sel-obra').value;
   if (!sondista || !obra || !sondeoNombre) return;
-  const inpInicio = card.querySelector('.inp-inicio');
-  if (!inpInicio) return; // no es sondeo
+
   try {
     const res = await fetch(`${API_URL}?action=getCotas&sondista=${encodeURIComponent(sondista)}&obra=${encodeURIComponent(obra)}&sondeo=${encodeURIComponent(sondeoNombre)}`);
     const data = await res.json();
-    inpInicio.value = parseFloat(data.cotaFinal) || 0;
-    const inpFinal = card.querySelector('.inp-final');
-    if (inpFinal) calcMetros(inpFinal);
+    const cotaFinal = parseFloat(data.cotaFinal) || 0;
+    card.querySelector('.inp-inicio').value = cotaFinal;
+    calcMetros(card.querySelector('.inp-final'));
   } catch(e) {}
 }
 
@@ -424,26 +392,33 @@ function calcMetros(inpFinal) {
   const final = parseFloat(inpFinal.value) || 0;
   const metros = Math.max(0, final - inicio);
   card.querySelector('.inp-metros').value = metros > 0 ? metros : '';
-  const lbl = card.querySelector('.metros-label');
+  const lbl = card.querySelector('[id^="metros-lbl"]');
   if (lbl) lbl.textContent = metros > 0 ? `${metros} m` : '0 m';
 }
 
-function calcBarrenas(inp) {
-  const card = inp.closest('.sondeo-card');
-  const num = parseFloat(card.querySelector('.inp-num-barr').value) || 0;
-  const lon = parseFloat(card.querySelector('.inp-long-barr').value) || 0;
-  const metros = num * lon;
-  card.querySelector('.inp-metros').value = metros > 0 ? metros : '';
-  const lbl = card.querySelector('.metros-label');
-  if (lbl) lbl.textContent = metros > 0 ? `${metros} m` : '0 m';
+// ── Foto ─────────────────────────────────────────────────────────────
+let fotoBase64 = null;
+let fotoFileName = null;
+
+function onFotoChange(inp) {
+  const file = inp.files[0];
+  if (!file) return;
+  fotoFileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    fotoBase64 = dataUrl.split(',')[1]; // solo base64, sin prefijo
+    document.getElementById('foto-img').src = dataUrl;
+    document.getElementById('foto-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
 }
 
-function calcDpsh(inp) {
-  const card = inp.closest('.sondeo-card');
-  const prof = parseFloat(card.querySelector('.inp-prof-dpsh').value) || 0;
-  card.querySelector('.inp-metros').value = prof > 0 ? prof : '';
-  const lbl = card.querySelector('.metros-label');
-  if (lbl) lbl.textContent = prof > 0 ? `${prof} m` : '0 m';
+function clearFoto() {
+  fotoBase64 = null;
+  fotoFileName = null;
+  document.getElementById('inp-foto').value = '';
+  document.getElementById('foto-preview').style.display = 'none';
 }
 
 // ── Enviar ────────────────────────────────────────────────────────────
@@ -465,24 +440,11 @@ async function enviarParte() {
   for (const card of sondeoCards) {
     const nombre = card.querySelector('.sondeo-nombre-inp').value.trim();
     const tipo   = card.querySelector('.sondeo-tipo-sel').value;
-
-    if (tipo === 'barrena') {
-      const num = parseFloat(card.querySelector('.inp-num-barr')?.value) || 0;
-      const lon = parseFloat(card.querySelector('.inp-long-barr')?.value) || 0;
-      if (!nombre || num <= 0 || lon <= 0) { showToast('Revisa nº y longitud de barrenas', true); return; }
-      const metros = num * lon;
-      sondeos.push({ nombre, tipo, cotaInicio: 0, cotaFinal: metros, numBarrenas: num, longBarrena: lon });
-    } else if (tipo === 'dpsh') {
-      const prof = parseFloat(card.querySelector('.inp-prof-dpsh')?.value) || 0;
-      if (!nombre || prof <= 0) { showToast(`Revisa la profundidad de ${nombre}`, true); return; }
-      sondeos.push({ nombre, tipo, cotaInicio: 0, cotaFinal: prof });
-    } else {
-      const cotaInicio = parseFloat(card.querySelector('.inp-inicio').value) || 0;
-      const cotaFinal  = parseFloat(card.querySelector('.inp-final').value);
-      if (!nombre || isNaN(cotaFinal)) { showToast('Revisa las cotas de los sondeos', true); return; }
-      if (cotaFinal < cotaInicio) { showToast(`Cota final de ${nombre} menor que inicio`, true); return; }
-      sondeos.push({ nombre, tipo, cotaInicio, cotaFinal });
-    }
+    const cotaInicio = parseFloat(card.querySelector('.inp-inicio').value) || 0;
+    const cotaFinal  = parseFloat(card.querySelector('.inp-final').value);
+    if (!nombre || isNaN(cotaFinal)) { showToast('Revisa las cotas de los sondeos', true); return; }
+    if (cotaFinal < cotaInicio) { showToast(`Cota final de ${nombre} menor que inicio`, true); return; }
+    sondeos.push({ nombre, tipo, cotaInicio, cotaFinal });
   }
 
   if (sondeos.length === 0 && !incidencias) {
@@ -493,7 +455,20 @@ async function enviarParte() {
   document.getElementById('btn-submit').disabled = true;
 
   try {
-    const body = { fecha, sondista, ayudante, obra, maquina, fueraTfe, incidencias, sondeos };
+    // 1. Subir foto si hay una
+    let fotoUrl = '';
+    if (fotoBase64 && fotoFileName) {
+      showToast('Subiendo foto...', false);
+      const fotoRes = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'uploadFoto', base64: fotoBase64, fileName: fotoFileName, obra, fecha })
+      });
+      const fotoData = await fotoRes.json();
+      if (fotoData.ok) fotoUrl = fotoData.url;
+    }
+
+    // 2. Enviar parte con la URL de la foto
+    const body = { fecha, sondista, ayudante, obra, maquina, fueraTfe, incidencias, sondeos, fotoUrl };
     const res = await fetch(API_URL, {
       method: 'POST',
       body: JSON.stringify(body)
@@ -521,6 +496,7 @@ function resetForm() {
   document.getElementById('sondeos-container').innerHTML = '';
   sondeoCount = 0;
   document.getElementById('inp-fecha').value = new Date().toISOString().split('T')[0];
+  clearFoto();
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────
