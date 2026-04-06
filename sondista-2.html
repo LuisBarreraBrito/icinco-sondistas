@@ -227,6 +227,14 @@
     </button>
   </div>
 
+  <!-- Historial -->
+  <div class="section" style="border-bottom:none" id="historial-section" style="display:none">
+    <div class="section-title">Mis últimos registros</div>
+    <div id="historial-container">
+      <div style="color:var(--muted);font-size:12px;">Selecciona tu nombre para ver tu historial.</div>
+    </div>
+  </div>
+
 </div>
 
 <div class="spinner-overlay" id="spinner"><div class="spinner"></div></div>
@@ -288,6 +296,72 @@ function populateSelects() {
 function onSondistaChange() {
   const s = document.getElementById('sel-sondista').value;
   document.getElementById('topbar-sondista').textContent = s || '—';
+  if (s) loadHistorial(s);
+}
+
+async function loadHistorial(sondista) {
+  const container = document.getElementById('historial-container');
+  container.innerHTML = '<div style="color:var(--muted);font-size:12px;">Cargando...</div>';
+
+  try {
+    const SHEET_ID = '1paXpV1MkVgWyKSzHOQ9d4oCgeSwvK1CY5bMzYwwnbgk';
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Partes`;
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const rows = (json.table.rows || []).map(r => {
+      const vals = r.c.map(c => c ? (c.v !== null && c.v !== undefined ? c.v : '') : '');
+      let fecha = vals[1] || '';
+      if (typeof fecha === 'string' && fecha.startsWith('Date(')) {
+        const parts = fecha.replace('Date(','').replace(')','').split(',').map(Number);
+        fecha = new Date(parts[0], parts[1], parts[2]).toISOString().split('T')[0];
+      }
+      return { fecha, sondista: vals[2], obra: vals[4], sondeo: vals[7], metros: parseFloat(vals[10])||0, tipo: vals[11] };
+    });
+
+    // Filtrar por este sondista, ordenar por fecha desc, últimos 10 días únicos
+    const miRows = rows.filter(r => r.sondista === sondista).sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+    // Agrupar por fecha
+    const porFecha = {};
+    miRows.forEach(r => {
+      if (!porFecha[r.fecha]) porFecha[r.fecha] = [];
+      porFecha[r.fecha].push(r);
+    });
+
+    const fechas = Object.keys(porFecha).slice(0, 10);
+
+    if (fechas.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:12px;">Sin registros todavía.</div>';
+      return;
+    }
+
+    container.innerHTML = fechas.map(fecha => {
+      const registros = porFecha[fecha];
+      const mSond = registros.filter(r=>r.tipo==='sondeo').reduce((a,r)=>a+r.metros,0);
+      const mBarr = registros.filter(r=>r.tipo==='barrena').reduce((a,r)=>a+r.metros,0);
+      const mDpsh = registros.filter(r=>r.tipo==='dpsh').reduce((a,r)=>a+r.metros,0);
+      const obras = [...new Set(registros.map(r=>r.obra).filter(Boolean))].join(', ');
+      const hoy = new Date().toISOString().split('T')[0];
+      const esHoy = fecha === hoy;
+
+      return `<div style="background:var(--card2);border:1px solid ${esHoy?'var(--accent)':'var(--border)'};border-left:3px solid ${esHoy?'var(--accent)':'var(--green)'};padding:10px 14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-family:var(--fh);font-size:15px;font-weight:700;color:${esHoy?'var(--accent)':'var(--text)'};">${fecha}${esHoy?' · HOY':''}</span>
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">${registros.length} registro${registros.length>1?'s':''}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${obras}</div>
+        <div style="display:flex;gap:12px;font-size:12px;">
+          ${mSond>0?`<span style="color:var(--green);">⬤ Sondeo: ${mSond}m</span>`:''}
+          ${mBarr>0?`<span style="color:var(--accent);">⬤ Barrena: ${mBarr}m</span>`:''}
+          ${mDpsh>0?`<span style="color:#a855f7;">⬤ DPSH: ${mDpsh}m</span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:12px;">Error cargando historial.</div>';
+  }
 }
 
 function onObraChange() {
@@ -557,6 +631,8 @@ function resetForm() {
   sondeoCount = 0;
   document.getElementById('inp-fecha').value = new Date().toISOString().split('T')[0];
   // fotos se limpian al limpiar los sondeos
+  const sondista = document.getElementById('sel-sondista').value;
+  if (sondista) loadHistorial(sondista);
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────
