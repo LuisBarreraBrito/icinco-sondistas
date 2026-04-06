@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICINCO · Panel Supervisor</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b24;
+    --card2: #1e2535;
+    --border: #2a3347;
+    --accent: #f0a500;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --text: #e8eaf0;
+    --muted: #6b7a99;
+    --fh: 'Barlow Condensed', sans-serif;
+    --fb: 'Barlow', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--fb); min-height: 100vh; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(240,165,0,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(240,165,0,0.025) 1px,transparent 1px); background-size:50px 50px; pointer-events:none; z-index:0; }
+
+  /* Login */
+  .login-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; position:relative; z-index:1; }
+  .login-logo { width:80px; height:80px; background:var(--accent); clip-path:polygon(0 0,100% 0,100% 75%,75% 100%,0 100%); display:flex; align-items:center; justify-content:center; font-family:var(--fh); font-size:32px; font-weight:800; color:#000; margin-bottom:24px; }
+  .login-title { font-family:var(--fh); font-size:40px; font-weight:800; margin-bottom:4px; }
+  .login-sub { font-size:12px; color:var(--muted); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:40px; }
+  .login-box { background:var(--card); border:1px solid var(--border); padding:32px; width:100%; max-width:380px; }
+  .login-box label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin-bottom:6px; }
+  .login-box input { width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text); padding:12px 16px; font-family:var(--fb); font-size:16px; outline:none; margin-bottom:16px; }
+  .login-box input:focus { border-color:var(--accent); }
+  .login-err { color:var(--red); font-size:12px; margin-bottom:12px; display:none; }
+
+  /* App */
+  .app { display:none; position:relative; z-index:1; }
+
+  .topbar { background:var(--card); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:100; }
+  .topbar-logo { width:38px; height:38px; background:var(--accent); clip-path:polygon(0 0,100% 0,100% 75%,75% 100%,0 100%); display:flex; align-items:center; justify-content:center; font-family:var(--fh); font-weight:800; font-size:15px; color:#000; }
+  .topbar-title { font-family:var(--fh); font-size:22px; font-weight:700; }
+  .topbar-badge { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); border:1px solid var(--accent); padding:3px 8px; opacity:0.8; }
+  .topbar-actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; font-family:var(--fb); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; border:none; cursor:pointer; transition:all 0.2s; }
+  .btn-accent { background:var(--accent); color:#000; }
+  .btn-accent:hover { background:#ffb800; }
+  .btn-outline { background:transparent; color:var(--text); border:1px solid var(--border); }
+  .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-green { background:var(--green); color:#000; }
+  .btn-green:hover { background:#16a34a; }
+  .btn-sm { padding:5px 10px; font-size:11px; }
+
+  .container { max-width:1300px; margin:0 auto; padding:28px 24px 60px; }
+
+  /* Stats */
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:28px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); padding:18px 20px; }
+  .stat-label { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); margin-bottom:6px; }
+  .stat-val { font-family:var(--fh); font-size:28px; font-weight:700; }
+  .stat-val.accent { color:var(--accent); }
+  .stat-val.green { color:var(--green); }
+  .stat-val.blue { color:var(--blue); }
+  .stat-val.purple { color:var(--purple); }
+
+  /* Filters */
+  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+  .filter-select { background:var(--card); border:1px solid var(--border); color:var(--text); padding:8px 12px; font-family:var(--fb); font-size:13px; outline:none; }
+  .filter-select:focus { border-color:var(--accent); }
+  .filter-input { background:var(--card); border:1px solid var(--border); color:var(--text); padding:8px 12px; font-family:var(--fb); font-size:13px; outline:none; min-width:120px; }
+  .filter-input:focus { border-color:var(--accent); }
+  .filter-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
+
+  /* Panel title */
+  .panel-title { font-family:var(--fh); font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .panel-title::before { content:''; width:3px; height:14px; background:var(--accent); }
+
+  /* Table */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:var(--card2); color:var(--muted); text-transform:uppercase; font-size:10px; letter-spacing:0.08em; padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; font-weight:600; }
+  tbody tr { border-bottom:1px solid var(--border); transition:background 0.15s; }
+  tbody tr:hover { background:var(--card2); }
+  tbody td { padding:9px 12px; vertical-align:middle; }
+
+  .badge { display:inline-block; padding:2px 8px; font-size:10px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; }
+  .badge-sond { background:rgba(59,130,246,0.15); color:#60a5fa; }
+  .badge-barr { background:rgba(240,165,0,0.15); color:var(--accent); }
+  .badge-dpsh { background:rgba(168,85,247,0.15); color:#c084fc; }
+  .badge-tfe { background:rgba(34,197,94,0.1); color:var(--green); }
+  .badge-fuera { background:rgba(168,85,247,0.1); color:#c084fc; }
+
+  .metros-cell { font-family:var(--fh); font-size:16px; font-weight:700; color:var(--green); }
+  .empty-state { text-align:center; padding:48px 20px; color:var(--muted); font-size:14px; }
+
+  .section-sep { height:1px; background:var(--border); margin:28px 0; }
+
+  .refresh-info { font-size:11px; color:var(--muted); }
+
+  .sondista-tabs { display:flex; gap:4px; margin-bottom:16px; flex-wrap:wrap; }
+  .stab { padding:6px 14px; font-family:var(--fb); font-size:12px; text-transform:uppercase; letter-spacing:0.07em; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all 0.2s; }
+  .stab.active { border-color:var(--accent); color:var(--accent); background:rgba(240,165,0,0.07); }
+  .stab .n { display:inline-block; background:var(--accent); color:#000; font-size:9px; padding:1px 5px; margin-left:4px; font-weight:700; }
+  .stab .n.z { background:var(--border); color:var(--muted); }
+
+  .spinner-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:500; }
+  .spinner-overlay.show { display:flex; }
+  .spinner { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  select option { background:#161b24; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login-screen" id="login-screen">
+  <div class="login-logo">IC</div>
+  <div class="login-title">ICINCO</div>
+  <div class="login-sub">Panel Supervisor</div>
+  <div class="login-box">
+    <label>Contraseña supervisor</label>
+    <input type="password" id="login-pass" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="login-err" id="login-err">Contraseña incorrecta</div>
+    <button class="btn btn-accent" style="width:100%;padding:14px;font-size:16px;" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="topbar-logo">IC</div>
+    <div class="topbar-title">Panel Supervisor</div>
+    <div class="topbar-badge">ICINCO</div>
+    <div class="topbar-actions">
+      <span class="refresh-info" id="last-refresh">—</span>
+      <button class="btn btn-outline btn-sm" onclick="loadData()">↻ Actualizar</button>
+      <button class="btn btn-green btn-sm" onclick="exportExcel()">⬇ Excel</button>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-label">Partes hoy</div><div class="stat-val accent" id="st-hoy">—</div></div>
+      <div class="stat-card"><div class="stat-label">M. sondeo (mes)</div><div class="stat-val green" id="st-msond">—</div></div>
+      <div class="stat-card"><div class="stat-label">M. barrena (mes)</div><div class="stat-val blue" id="st-mbarr">—</div></div>
+      <div class="stat-card"><div class="stat-label">M. DPSH (mes)</div><div class="stat-val purple" id="st-mdpsh">—</div></div>
+      <div class="stat-card"><div class="stat-label">Total registros</div><div class="stat-val" id="st-total">—</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <span class="filter-label">Filtrar:</span>
+      <select class="filter-select" id="f-sondista" onchange="applyFilters()">
+        <option value="">Todos los sondistas</option>
+      </select>
+      <select class="filter-select" id="f-obra" onchange="applyFilters()">
+        <option value="">Todas las obras</option>
+      </select>
+      <input type="date" class="filter-input" id="f-desde" onchange="applyFilters()">
+      <input type="date" class="filter-input" id="f-hasta" onchange="applyFilters()">
+      <button class="btn btn-outline btn-sm" onclick="clearFilters()">✕ Limpiar</button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="panel-title">Partes registrados</div>
+    <div class="table-wrap">
+      <table id="main-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Sondista</th>
+            <th>Ayudante</th>
+            <th>Obra</th>
+            <th>Máquina</th>
+            <th>Ubicación</th>
+            <th>Sondeo</th>
+            <th>Tipo</th>
+            <th>C. Inicio</th>
+            <th>C. Final</th>
+            <th>Metros día</th>
+            <th>Incidencias</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="12" class="empty-state">Cargando datos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-sep"></div>
+
+    <!-- Resumen por sondista -->
+    <div class="panel-title">Resumen mensual por sondista</div>
+    <div id="resumen-sondistas"></div>
+
+  </div>
+</div>
+
+<div class="spinner-overlay" id="spinner"><div class="spinner"></div></div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbzfNGxUvOPMd2q6EVSFIPUa1FzFwBJnrlWrg_gf43QYU0CikURfFcHE-I8f-TWuMnoAKQ/exec';
+const PASS = 'icinco2026';
+const SHEET_ID = '1paXpV1MkVgWyKSzHOQ9d4oCgeSwvK1CY5bMzYwwnbgk';
+
+let allRows = [];
+let filteredRows = [];
+
+// ── Auth ──────────────────────────────────────────────────────────────
+function doLogin() {
+  if (document.getElementById('login-pass').value === PASS) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    sessionStorage.setItem('ic_sup', '1');
+    loadData();
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+  }
+}
+function doLogout() { sessionStorage.removeItem('ic_sup'); location.reload(); }
+
+// ── Load data via Google Sheets JSON API ──────────────────────────────
+async function loadData() {
+  showSpinner(true);
+  try {
+    // Leer el Sheet directamente via la API pública de Google Sheets (JSON)
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Partes`;
+    const res = await fetch(url);
+    const text = await res.text();
+    // Google envuelve la respuesta en /*O_o*/google.visualization.Query.setResponse(...)
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const rows = json.table.rows || [];
+    const cols = json.table.cols;
+
+    allRows = rows.map(r => {
+      const vals = r.c.map(c => c ? (c.v !== null && c.v !== undefined ? c.v : '') : '');
+
+      // Google gviz devuelve fechas como Date(yyyy,m,d) con mes 0-indexado — corregir
+      let fecha = vals[1] || '';
+      if (typeof fecha === 'string' && fecha.startsWith('Date(')) {
+        const parts = fecha.replace('Date(','').replace(')','').split(',').map(Number);
+        const d = new Date(parts[0], parts[1], parts[2]);
+        fecha = d.toISOString().split('T')[0]; // yyyy-mm-dd
+      } else if (fecha instanceof Date || (typeof fecha === 'number')) {
+        // A veces viene como número de serie de Excel
+        const d = new Date(fecha);
+        fecha = d.toISOString().split('T')[0];
+      }
+
+      return {
+        timestamp:   vals[0] || '',
+        fecha:       fecha,
+        sondista:    vals[2] || '',
+        ayudante:    vals[3] || '',
+        obra:        vals[4] || '',
+        maquina:     vals[5] || '',
+        fueraTfe:    vals[6] || '',
+        sondeo:      vals[7] || '',
+        cotaInicio:  parseFloat(vals[8]) || 0,
+        cotaFinal:   parseFloat(vals[9]) || 0,
+        metrosDia:   parseFloat(vals[10]) || 0,
+        tipo:        vals[11] || 'sondeo',
+        incidencias: vals[12] || '',
+      };
+    });
+
+    populateFilterSelects();
+    applyFilters();
+    updateStats();
+
+    const now = new Date();
+    document.getElementById('last-refresh').textContent = `Actualizado: ${now.toLocaleTimeString('es-ES')}`;
+  } catch(e) {
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="12" class="empty-state">Error cargando datos. Comprueba que el Sheet es público o usa el botón Actualizar.</td></tr>`;
+    console.error(e);
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function populateFilterSelects() {
+  const sondistas = [...new Set(allRows.map(r => r.sondista).filter(Boolean))].sort();
+  const obras = [...new Set(allRows.map(r => r.obra).filter(Boolean))].sort();
+
+  const fs = document.getElementById('f-sondista');
+  const fo = document.getElementById('f-obra');
+  const curS = fs.value, curO = fo.value;
+
+  fs.innerHTML = '<option value="">Todos los sondistas</option>';
+  sondistas.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; if(s===curS) o.selected=true; fs.appendChild(o); });
+
+  fo.innerHTML = '<option value="">Todas las obras</option>';
+  obras.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; if(s===curO) o.selected=true; fo.appendChild(o); });
+}
+
+function applyFilters() {
+  const fs = document.getElementById('f-sondista').value;
+  const fo = document.getElementById('f-obra').value;
+  const fd = document.getElementById('f-desde').value;
+  const fh = document.getElementById('f-hasta').value;
+
+  filteredRows = allRows.filter(r => {
+    if (fs && r.sondista !== fs) return false;
+    if (fo && r.obra !== fo) return false;
+    if (fd && r.fecha < fd) return false;
+    if (fh && r.fecha > fh) return false;
+    return true;
+  });
+
+  renderTable();
+  renderResumen();
+}
+
+function clearFilters() {
+  document.getElementById('f-sondista').value = '';
+  document.getElementById('f-obra').value = '';
+  document.getElementById('f-desde').value = '';
+  document.getElementById('f-hasta').value = '';
+  applyFilters();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  if (filteredRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Sin datos para los filtros aplicados</td></tr>';
+    return;
+  }
+
+  const sorted = [...filteredRows].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  tbody.innerHTML = sorted.map(r => {
+    const tipoBadge = r.tipo === 'barrena' ? 'badge-barr' : r.tipo === 'dpsh' ? 'badge-dpsh' : 'badge-sond';
+    const ubicBadge = r.fueraTfe === 'SÍ' ? '<span class="badge badge-fuera">Fuera Tfe</span>' : '<span class="badge badge-tfe">Tenerife</span>';
+    return `<tr>
+      <td>${r.fecha}</td>
+      <td><strong>${r.sondista}</strong></td>
+      <td>${r.ayudante}</td>
+      <td style="font-size:12px">${r.obra}</td>
+      <td>${r.maquina}</td>
+      <td>${ubicBadge}</td>
+      <td><strong>${r.sondeo}</strong></td>
+      <td><span class="badge ${tipoBadge}">${r.tipo}</span></td>
+      <td>${r.cotaInicio} m</td>
+      <td>${r.cotaFinal} m</td>
+      <td class="metros-cell">${r.metrosDia} m</td>
+      <td style="font-size:11px;color:var(--muted);max-width:200px">${r.incidencias}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderResumen() {
+  const sondistas = [...new Set(filteredRows.map(r => r.sondista).filter(Boolean))].sort();
+  const el = document.getElementById('resumen-sondistas');
+
+  if (sondistas.length === 0) { el.innerHTML = '<div class="empty-state">Sin datos</div>'; return; }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">` +
+    sondistas.map(s => {
+      const rows = filteredRows.filter(r => r.sondista === s);
+      const mSond = rows.filter(r=>r.tipo==='sondeo').reduce((a,r)=>a+r.metrosDia,0);
+      const mBarr = rows.filter(r=>r.tipo==='barrena').reduce((a,r)=>a+r.metrosDia,0);
+      const mDpsh = rows.filter(r=>r.tipo==='dpsh').reduce((a,r)=>a+r.metrosDia,0);
+      const diasFuera = [...new Set(rows.filter(r=>r.fueraTfe==='SÍ').map(r=>r.fecha))].length;
+      return `<div style="background:var(--card);border:1px solid var(--border);padding:18px;">
+        <div style="font-family:var(--fh);font-size:18px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+          ${s} ${diasFuera>0?`<span style="font-size:11px;color:#c084fc;border:1px solid #a855f7;padding:2px 8px;">${diasFuera}d fuera</span>`:''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
+          <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:2px;">Sondeo</div><div style="font-family:var(--fh);font-size:20px;color:var(--green);">${mSond.toFixed(1)}m</div></div>
+          <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:2px;">Barrena</div><div style="font-family:var(--fh);font-size:20px;color:var(--accent);">${mBarr.toFixed(1)}m</div></div>
+          <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:2px;">DPSH</div><div style="font-family:var(--fh);font-size:20px;color:#c084fc;">${mDpsh.toFixed(1)}m</div></div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+function updateStats() {
+  const today = new Date().toISOString().split('T')[0];
+  const thisMonth = today.substring(0,7);
+
+  const hoy = allRows.filter(r => r.fecha === today).length;
+  const mSond = allRows.filter(r=>r.fecha.startsWith(thisMonth)&&r.tipo==='sondeo').reduce((a,r)=>a+r.metrosDia,0);
+  const mBarr = allRows.filter(r=>r.fecha.startsWith(thisMonth)&&r.tipo==='barrena').reduce((a,r)=>a+r.metrosDia,0);
+  const mDpsh = allRows.filter(r=>r.fecha.startsWith(thisMonth)&&r.tipo==='dpsh').reduce((a,r)=>a+r.metrosDia,0);
+
+  document.getElementById('st-hoy').textContent = hoy;
+  document.getElementById('st-msond').textContent = mSond.toFixed(1) + ' m';
+  document.getElementById('st-mbarr').textContent = mBarr.toFixed(1) + ' m';
+  document.getElementById('st-mdpsh').textContent = mDpsh.toFixed(1) + ' m';
+  document.getElementById('st-total').textContent = allRows.length;
+}
+
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const data = [
+    ['Fecha','Sondista','Ayudante','Obra','Máquina','Fuera Tfe','Sondeo','Tipo','Cota Inicio','Cota Final','Metros Día','Incidencias'],
+    ...filteredRows.map(r=>[r.fecha,r.sondista,r.ayudante,r.obra,r.maquina,r.fueraTfe,r.sondeo,r.tipo,r.cotaInicio,r.cotaFinal,r.metrosDia,r.incidencias])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:35},{wch:8},{wch:10},{wch:8},{wch:8},{wch:10},{wch:10},{wch:10},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Partes');
+  XLSX.writeFile(wb, `ICINCO_Partes_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+function showSpinner(s) { document.getElementById('spinner').classList.toggle('show', s); }
+
+// Auto-login
+if (sessionStorage.getItem('ic_sup') === '1') {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadData();
+}
+
+// Auto-refresh cada 2 minutos
+setInterval(() => { if(sessionStorage.getItem('ic_sup')==='1') loadData(); }, 120000);
+</script>
+</body>
+</html>
