@@ -396,20 +396,12 @@ function calcMetros(inpFinal) {
   if (lbl) lbl.textContent = metros > 0 ? `${metros} m` : '0 m';
 }
 
-// ── Foto ─────────────────────────────────────────────────────────────
-let fotoBase64 = null;
-let fotoFileName = null;
-
-function onFotoChange(inp) {
-  const file = inp.files[0];
-  if (!file) return;
-  fotoFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-
+// ── Foto por sondeo ──────────────────────────────────────────────────
+function comprimirImagen(file, callback) {
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      // Comprimir a máximo 1200px manteniendo proporción
       const MAX = 1200;
       let w = img.width, h = img.height;
       if (w > MAX || h > MAX) {
@@ -420,21 +412,34 @@ function onFotoChange(inp) {
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const compressed = canvas.toDataURL('image/jpeg', 0.75);
-      fotoBase64 = compressed.split(',')[1];
-      fotoFileName = fotoFileName.replace(/\.[^.]+$/, '') + '.jpg';
-      document.getElementById('foto-img').src = compressed;
-      document.getElementById('foto-preview').style.display = 'block';
+      callback(compressed);
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-function clearFoto() {
-  fotoBase64 = null;
-  fotoFileName = null;
-  document.getElementById('inp-foto').value = '';
-  document.getElementById('foto-preview').style.display = 'none';
+function onFotoSondeo(inp) {
+  const file = inp.files[0];
+  if (!file) return;
+  comprimirImagen(file, compressed => {
+    inp.dataset.base64 = compressed.split(',')[1];
+    inp.dataset.filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]*$/, '') + '.jpg';
+    const preview = inp.closest('.foto-field').querySelector('.foto-preview-sondeo');
+    const imgEl = inp.closest('.foto-field').querySelector('.foto-img-sondeo');
+    imgEl.src = compressed;
+    preview.style.display = 'block';
+  });
+}
+
+function clearFotoSondeo(btn) {
+  const field = btn.closest('.foto-field');
+  const inp = field.querySelector('.inp-foto-sondeo');
+  inp.value = '';
+  inp.dataset.base64 = '';
+  inp.dataset.filename = '';
+  field.querySelector('.foto-preview-sondeo').style.display = 'none';
+  field.querySelector('.foto-img-sondeo').src = '';
 }
 
 // ── Enviar ────────────────────────────────────────────────────────────
@@ -471,20 +476,28 @@ async function enviarParte() {
   document.getElementById('btn-submit').disabled = true;
 
   try {
-    // 1. Subir foto si hay una
-    let fotoUrl = '';
-    if (fotoBase64 && fotoFileName) {
-      showToast('Subiendo foto...', false);
-      const fotoRes = await fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'uploadFoto', base64: fotoBase64, fileName: fotoFileName, obra, fecha })
+    // 1. Subir fotos por sondeo si las hay
+    for (const s of sondeos) {
+      const card = [...document.querySelectorAll('.sondeo-card')].find(c => {
+        return c.querySelector('.sondeo-nombre-inp')?.value === s.nombre &&
+               c.querySelector('.sondeo-tipo-sel')?.value === s.tipo;
       });
-      const fotoData = await fotoRes.json();
-      if (fotoData.ok) fotoUrl = fotoData.url;
+      if (!card) continue;
+      const inpFoto = card.querySelector('.inp-foto-sondeo');
+      if (!inpFoto || !inpFoto.dataset.base64) continue;
+      showToast('Subiendo foto de ' + s.nombre + '...', false);
+      try {
+        const fotoRes = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'uploadFoto', base64: inpFoto.dataset.base64, fileName: s.nombre + '_' + inpFoto.dataset.filename, obra, fecha })
+        });
+        const fotoData = await fotoRes.json();
+        if (fotoData.ok) s.fotoUrl = fotoData.url;
+      } catch(e) {}
     }
 
-    // 2. Enviar parte con la URL de la foto
-    const body = { fecha, sondista, ayudante, obra, maquina, fueraTfe, incidencias, sondeos, fotoUrl };
+    // 2. Enviar parte
+    const body = { fecha, sondista, ayudante, obra, maquina, fueraTfe, incidencias, sondeos };
     const res = await fetch(API_URL, {
       method: 'POST',
       body: JSON.stringify(body)
@@ -512,7 +525,7 @@ function resetForm() {
   document.getElementById('sondeos-container').innerHTML = '';
   sondeoCount = 0;
   document.getElementById('inp-fecha').value = new Date().toISOString().split('T')[0];
-  clearFoto();
+  // fotos se limpian al limpiar los sondeos
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────
