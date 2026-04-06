@@ -182,25 +182,56 @@
             <th>Máquina</th>
             <th>Ubicación</th>
             <th>Sondeo</th>
-            <th>Tipo</th>
-            <th>C. Inicio</th>
-            <th>C. Final</th>
-            <th>Metros día</th>
+            <th>M. Sondeo</th>
+            <th>M. Barrena</th>
+            <th>M. DPSH</th>
             <th>Incidencias</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr><td colspan="12" class="empty-state">Cargando datos...</td></tr>
+          <tr><td colspan="11" class="empty-state">Cargando datos...</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="section-sep"></div>
 
-    <!-- Resumen por sondista -->
+    <!-- Resumen mensual -->
     <div class="panel-title">Resumen mensual por sondista</div>
     <div id="resumen-sondistas"></div>
 
+    <div class="section-sep"></div>
+
+    <!-- Resumen semanal -->
+    <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Resumen semanal</span>
+      <div id="semana-tabs" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+    </div>
+    <div id="resumen-semanal"></div>
+
+  </div>
+</div>
+
+<!-- Modal editar -->
+<div id="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border);padding:28px;width:100%;max-width:480px;position:relative;">
+    <div style="font-family:var(--fh);font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:20px;">Editar registro</div>
+    <div style="display:grid;gap:12px;">
+      <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.08em;">Fecha</label><input id="ed-fecha" type="date" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+      <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.08em;">Obra</label><input id="ed-obra" type="text" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+      <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.08em;">Sondeo / Ensayo</label><input id="ed-sondeo" type="text" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);">C. Inicio</label><input id="ed-inicio" type="number" step="0.5" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+        <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);">C. Final / Prof.</label><input id="ed-final" type="number" step="0.5" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+        <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);">Metros día</label><input id="ed-metros" type="number" step="0.5" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+      </div>
+      <div><label style="font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.08em;">Incidencias</label><input id="ed-incidencias" type="text" style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--fb);font-size:13px;outline:none;margin-top:4px;"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="saveEdit()" style="flex:1;background:var(--accent);color:#000;border:none;padding:12px;font-family:var(--fb);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;">Guardar</button>
+      <button onclick="closeModal()" style="background:transparent;color:var(--muted);border:1px solid var(--border);padding:12px 20px;font-family:var(--fb);font-size:12px;cursor:pointer;">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -317,6 +348,7 @@ function applyFilters() {
 
   renderTable();
   renderResumen();
+  renderSemanaSelector();
 }
 
 function clearFilters() {
@@ -330,14 +362,17 @@ function clearFilters() {
 function renderTable() {
   const tbody = document.getElementById('table-body');
   if (filteredRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Sin datos para los filtros aplicados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Sin datos para los filtros aplicados</td></tr>';
     return;
   }
 
   const sorted = [...filteredRows].sort((a,b) => b.fecha.localeCompare(a.fecha));
-  tbody.innerHTML = sorted.map(r => {
-    const tipoBadge = r.tipo === 'barrena' ? 'badge-barr' : r.tipo === 'dpsh' ? 'badge-dpsh' : 'badge-sond';
+  sortedCache = sorted;
+  tbody.innerHTML = sorted.map((r, idx) => {
     const ubicBadge = r.fueraTfe === 'SÍ' ? '<span class="badge badge-fuera">Fuera Tfe</span>' : '<span class="badge badge-tfe">Tenerife</span>';
+    const mSond = r.tipo === 'sondeo'  ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--green)">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
+    const mBarr = r.tipo === 'barrena' ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent)">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
+    const mDpsh = r.tipo === 'dpsh'    ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:#c084fc">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
     return `<tr>
       <td>${r.fecha}</td>
       <td><strong>${r.sondista}</strong></td>
@@ -346,13 +381,16 @@ function renderTable() {
       <td>${r.maquina}</td>
       <td>${ubicBadge}</td>
       <td><strong>${r.sondeo}</strong></td>
-      <td><span class="badge ${tipoBadge}">${r.tipo}</span></td>
-      <td>${r.cotaInicio} m</td>
-      <td>${r.cotaFinal} m</td>
-      <td class="metros-cell">${r.metrosDia} m</td>
+      <td>${mSond}</td>
+      <td>${mBarr}</td>
+      <td>${mDpsh}</td>
       <td style="font-size:11px;color:var(--muted);max-width:200px">${r.incidencias}</td>
+      <td style="white-space:nowrap;">
+        <button onclick="openEdit(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;" title="Editar">✏️</button>
+        <button onclick="deleteRow(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑️</button>
+      </td>
     </tr>`;
-  }).join('');
+  }, '');
 }
 
 function renderResumen() {
@@ -410,6 +448,137 @@ function exportExcel() {
 }
 
 function showSpinner(s) { document.getElementById('spinner').classList.toggle('show', s); }
+
+// ── Resumen semanal ───────────────────────────────────────────────────
+function getSemanas(year, month) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const semanas = [];
+  let d = 1, n = 1;
+  while (d <= daysInMonth) {
+    const start = d;
+    let end = d;
+    while (end < daysInMonth && new Date(year, month-1, end).getDay() !== 0) end++;
+    const dias = [];
+    for (let x = start; x <= end; x++) dias.push(`${year}-${String(month).padStart(2,'0')}-${String(x).padStart(2,'0')}`);
+    semanas.push({ num: n, label: `Sem ${n} (${start}–${end})`, dias });
+    d = end + 1; n++;
+  }
+  return semanas;
+}
+
+let semanaActivaSup = 1;
+
+function renderSemanaSelector() {
+  const today = new Date();
+  const year = today.getFullYear(), month = today.getMonth()+1;
+  const semanas = getSemanas(year, month);
+  const tabsEl = document.getElementById('semana-tabs');
+  tabsEl.innerHTML = '';
+  semanas.forEach((s,i) => {
+    const btn = document.createElement('button');
+    btn.textContent = s.label;
+    btn.style.cssText = `padding:4px 12px;font-family:var(--fb);font-size:11px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;`;
+    if (i===0 || s.num===semanaActivaSup) { btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)'; }
+    btn.onclick = () => {
+      semanaActivaSup = s.num;
+      document.querySelectorAll('#semana-tabs button').forEach(b => { b.style.borderColor='var(--border)'; b.style.color='var(--muted)'; });
+      btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)';
+      renderResumenSemanal(semanas);
+    };
+    tabsEl.appendChild(btn);
+  });
+  renderResumenSemanal(semanas);
+}
+
+function renderResumenSemanal(semanas) {
+  const sem = semanas.find(s=>s.num===semanaActivaSup) || semanas[0];
+  if (!sem) return;
+  const el = document.getElementById('resumen-semanal');
+  const rowsSem = allRows.filter(r => sem.dias.includes(r.fecha));
+  const sondistas = [...new Set(rowsSem.map(r=>r.sondista).filter(Boolean))].sort();
+
+  if (sondistas.length === 0) { el.innerHTML = '<div class="empty-state">Sin registros esta semana</div>'; return; }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">` +
+    sondistas.map(s => {
+      const rows = rowsSem.filter(r=>r.sondista===s);
+      const mSond = rows.filter(r=>r.tipo==='sondeo').reduce((a,r)=>a+r.metrosDia,0);
+      const mBarr = rows.filter(r=>r.tipo==='barrena').reduce((a,r)=>a+r.metrosDia,0);
+      const mDpsh = rows.filter(r=>r.tipo==='dpsh').reduce((a,r)=>a+r.metrosDia,0);
+      const diasFuera = [...new Set(rows.filter(r=>r.fueraTfe==='SÍ').map(r=>r.fecha))].length;
+      return `<div style="background:var(--card);border:1px solid var(--border);border-top:3px solid var(--accent);padding:18px;">
+        <div style="font-family:var(--fh);font-size:18px;font-weight:700;margin-bottom:4px;">${s}</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;">${sem.label}${diasFuera>0?` · <span style="color:#c084fc">${diasFuera}d fuera Tfe</span>`:''}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:2px;">Sondeo</div><div style="font-family:var(--fh);font-size:22px;color:var(--green);">${mSond.toFixed(1)}m</div></div>
+          <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:2px;">Barrena</div><div style="font-family:var(--fh);font-size:22px;color:var(--accent);">${mBarr.toFixed(1)}m</div></div>
+          <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;margin-bottom:2px;">DPSH</div><div style="font-family:var(--fh);font-size:22px;color:#c084fc;">${mDpsh.toFixed(1)}m</div></div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+// ── Editar / Borrar ───────────────────────────────────────────────────
+let editIdx = null;
+let sortedCache = [];
+
+function openEdit(idx) {
+  editIdx = idx;
+  const r = sortedCache[idx];
+  if (!r) return;
+  document.getElementById('ed-fecha').value = r.fecha;
+  document.getElementById('ed-obra').value = r.obra;
+  document.getElementById('ed-sondeo').value = r.sondeo;
+  document.getElementById('ed-inicio').value = r.cotaInicio;
+  document.getElementById('ed-final').value = r.cotaFinal;
+  document.getElementById('ed-metros').value = r.metrosDia;
+  document.getElementById('ed-incidencias').value = r.incidencias;
+  const mo = document.getElementById('modal-overlay');
+  mo.style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+  editIdx = null;
+}
+
+async function saveEdit() {
+  if (editIdx === null) return;
+  const r = sortedCache[editIdx];
+  r.fecha = document.getElementById('ed-fecha').value;
+  r.obra = document.getElementById('ed-obra').value;
+  r.sondeo = document.getElementById('ed-sondeo').value;
+  r.cotaInicio = parseFloat(document.getElementById('ed-inicio').value)||0;
+  r.cotaFinal = parseFloat(document.getElementById('ed-final').value)||0;
+  r.metrosDia = parseFloat(document.getElementById('ed-metros').value)||0;
+  r.incidencias = document.getElementById('ed-incidencias').value;
+
+  showSpinner(true);
+  try {
+    await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'editRow', timestamp: r.timestamp, data: r })
+    });
+  } catch(e) {}
+  closeModal();
+  await loadData();
+  showSpinner(false);
+}
+
+async function deleteRow(idx) {
+  const r = sortedCache[idx];
+  if (!r) return;
+  if (!confirm(`¿Eliminar el registro de ${r.sondista} — ${r.sondeo} — ${r.fecha}?`)) return;
+  showSpinner(true);
+  try {
+    await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deleteRow', timestamp: r.timestamp })
+    });
+  } catch(e) {}
+  await loadData();
+  showSpinner(false);
+}
 
 // Auto-login
 if (sessionStorage.getItem('ic_sup') === '1') {
