@@ -566,11 +566,24 @@ async function enviarParte() {
   for (const card of sondeoCards) {
     const nombre = card.querySelector('.sondeo-nombre-inp').value.trim();
     const tipo   = card.querySelector('.sondeo-tipo-sel').value;
-    const cotaInicio = parseFloat(card.querySelector('.inp-inicio').value) || 0;
-    const cotaFinal  = parseFloat(card.querySelector('.inp-final').value);
-    if (!nombre || isNaN(cotaFinal)) { showToast('Revisa las cotas de los sondeos', true); return; }
-    if (cotaFinal < cotaInicio) { showToast(`Cota final de ${nombre} menor que inicio`, true); return; }
-    sondeos.push({ nombre, tipo, cotaInicio, cotaFinal });
+    if (!nombre) { showToast('Falta el nombre de un sondeo', true); return; }
+
+    if (tipo === 'barrena') {
+      const num = parseFloat(card.querySelector('.inp-num-barr')?.value) || 0;
+      const lon = parseFloat(card.querySelector('.inp-long-barr')?.value) || 0;
+      if (num <= 0 || lon <= 0) { showToast(`Revisa nº y longitud de barrenas en ${nombre}`, true); return; }
+      sondeos.push({ nombre, tipo, cotaInicio: 0, cotaFinal: num * lon, numBarrenas: num, longBarrena: lon });
+    } else if (tipo === 'dpsh') {
+      const prof = parseFloat(card.querySelector('.inp-prof-dpsh')?.value) || 0;
+      if (prof <= 0) { showToast(`Revisa la profundidad de ${nombre}`, true); return; }
+      sondeos.push({ nombre, tipo, cotaInicio: 0, cotaFinal: prof });
+    } else {
+      const cotaInicio = parseFloat(card.querySelector('.inp-inicio')?.value) || 0;
+      const cotaFinal  = parseFloat(card.querySelector('.inp-final')?.value);
+      if (isNaN(cotaFinal) || cotaFinal <= 0) { showToast(`Revisa la cota final de ${nombre}`, true); return; }
+      if (cotaFinal < cotaInicio) { showToast(`Cota final de ${nombre} menor que inicio`, true); return; }
+      sondeos.push({ nombre, tipo, cotaInicio, cotaFinal });
+    }
   }
 
   if (sondeos.length === 0 && !incidencias) {
