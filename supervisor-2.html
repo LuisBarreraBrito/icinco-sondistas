@@ -278,8 +278,10 @@ async function loadData() {
       let fecha = vals[1] || '';
       if (typeof fecha === 'string' && fecha.startsWith('Date(')) {
         const parts = fecha.replace('Date(','').replace(')','').split(',').map(Number);
-        const d = new Date(parts[0], parts[1], parts[2]);
-        fecha = d.toISOString().split('T')[0]; // yyyy-mm-dd
+        // Google gviz: mes es 0-indexado → sumar 1, construir string directamente
+        const mm = String(parts[1] + 1).padStart(2, '0');
+        const dd = String(parts[2]).padStart(2, '0');
+        fecha = `${parts[0]}-${mm}-${dd}`; // yyyy-mm-dd
       } else if (fecha instanceof Date || (typeof fecha === 'number')) {
         // A veces viene como número de serie de Excel
         const d = new Date(fecha);

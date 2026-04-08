@@ -314,7 +314,10 @@ async function loadHistorial(sondista) {
       let fecha = vals[1] || '';
       if (typeof fecha === 'string' && fecha.startsWith('Date(')) {
         const parts = fecha.replace('Date(','').replace(')','').split(',').map(Number);
-        fecha = new Date(parts[0], parts[1], parts[2]).toISOString().split('T')[0];
+        // Google gviz: mes es 0-indexado → sumar 1, construir string directamente
+        const mm = String(parts[1] + 1).padStart(2, '0');
+        const dd = String(parts[2]).padStart(2, '0');
+        fecha = `${parts[0]}-${mm}-${dd}`;
       }
       return { fecha, sondista: vals[2], obra: vals[4], sondeo: vals[7], metros: parseFloat(vals[10])||0, tipo: vals[11] };
     });
