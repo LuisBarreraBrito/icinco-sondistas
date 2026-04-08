@@ -400,15 +400,12 @@ function buildCardHTML(n, tipo) {
       </div>`;
 
   const fotoHTML = tipo !== 'barrena'
-    ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-        <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:6px;">📷 Foto del sondeo (opcional)</label>
-        <input type="file" accept="image/*" class="inp-foto-sondeo"
+    ? `<div class="foto-field" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:6px;">📷 Fotos del sondeo (opcional)</label>
+        <input type="file" accept="image/*" multiple class="inp-foto-sondeo"
           style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:var(--fb);font-size:12px;cursor:pointer;"
           onchange="onFotoSondeo(this)">
-        <div class="foto-preview-sondeo" style="display:none;margin-top:6px;">
-          <img class="foto-img-sondeo" style="width:100%;max-height:160px;object-fit:cover;border:1px solid var(--border);">
-          <button type="button" onclick="clearFotoSondeo(this)" style="margin-top:4px;background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;font-family:var(--fb);font-size:11px;cursor:pointer;width:100%;">✕ Quitar foto</button>
-        </div>
+        <div class="foto-previews-sondeo" style="display:none;margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;"></div>
       </div>`
     : '';
 
@@ -528,26 +525,54 @@ function comprimirImagen(file, callback) {
 }
 
 function onFotoSondeo(inp) {
-  const file = inp.files[0];
-  if (!file) return;
-  comprimirImagen(file, compressed => {
-    inp.dataset.base64 = compressed.split(',')[1];
-    inp.dataset.filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]*$/, '') + '.jpg';
-    const preview = inp.closest('.foto-field').querySelector('.foto-preview-sondeo');
-    const imgEl = inp.closest('.foto-field').querySelector('.foto-img-sondeo');
-    imgEl.src = compressed;
-    preview.style.display = 'block';
+  const files = Array.from(inp.files);
+  if (!files.length) return;
+  const field = inp.closest('.foto-field');
+  const previewsDiv = field.querySelector('.foto-previews-sondeo');
+  previewsDiv.style.display = 'flex';
+
+  // Store array of {base64, filename} in dataset as JSON
+  const fotosData = JSON.parse(inp.dataset.fotos || '[]');
+
+  files.forEach((file, i) => {
+    comprimirImagen(file, compressed => {
+      const baseName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]*$/, '') + '.jpg';
+      fotosData.push({ base64: compressed.split(',')[1], filename: baseName });
+      inp.dataset.fotos = JSON.stringify(fotosData);
+
+      // Add thumbnail
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:relative;width:80px;height:80px;flex-shrink:0;';
+      wrapper.innerHTML = `
+        <img src="${compressed}" style="width:80px;height:80px;object-fit:cover;border:1px solid var(--border);">
+        <button type="button" onclick="removeFotoSondeo(this,${fotosData.length-1})"
+          style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);border:none;color:#fff;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;padding:0;">×</button>`;
+      previewsDiv.appendChild(wrapper);
+    });
   });
+  // Reset input so same file can be added again if needed
+  inp.value = '';
+}
+
+function removeFotoSondeo(btn, idx) {
+  const field = btn.closest('.foto-field');
+  const inp = field.querySelector('.inp-foto-sondeo');
+  const fotosData = JSON.parse(inp.dataset.fotos || '[]');
+  fotosData.splice(idx, 1);
+  inp.dataset.fotos = JSON.stringify(fotosData);
+  btn.closest('div').remove();
+  // Re-index remaining buttons
+  const btns = field.querySelectorAll('.foto-previews-sondeo button');
+  btns.forEach((b, i) => b.setAttribute('onclick', `removeFotoSondeo(this,${i})`));
 }
 
 function clearFotoSondeo(btn) {
   const field = btn.closest('.foto-field');
   const inp = field.querySelector('.inp-foto-sondeo');
   inp.value = '';
-  inp.dataset.base64 = '';
-  inp.dataset.filename = '';
-  field.querySelector('.foto-preview-sondeo').style.display = 'none';
-  field.querySelector('.foto-img-sondeo').src = '';
+  inp.dataset.fotos = '[]';
+  field.querySelector('.foto-previews-sondeo').innerHTML = '';
+  field.querySelector('.foto-previews-sondeo').style.display = 'none';
 }
 
 // ── Enviar ────────────────────────────────────────────────────────────
@@ -599,22 +624,29 @@ async function enviarParte() {
   try {
     // 1. Subir fotos por sondeo si las hay
     for (const s of sondeos) {
-      const card = [...document.querySelectorAll('.sondeo-card')].find(c => {
-        return c.querySelector('.sondeo-nombre-inp')?.value === s.nombre &&
-               c.querySelector('.sondeo-tipo-sel')?.value === s.tipo;
-      });
+      const card = [...document.querySelectorAll('.sondeo-card')].find(c =>
+        c.querySelector('.sondeo-nombre-inp')?.value === s.nombre &&
+        c.querySelector('.sondeo-tipo-sel')?.value === s.tipo
+      );
       if (!card) continue;
       const inpFoto = card.querySelector('.inp-foto-sondeo');
-      if (!inpFoto || !inpFoto.dataset.base64) continue;
-      showToast('Subiendo foto de ' + s.nombre + '...', false);
-      try {
-        const fotoRes = await fetch(API_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'uploadFoto', base64: inpFoto.dataset.base64, fileName: s.nombre + '_' + inpFoto.dataset.filename, obra, fecha })
-        });
-        const fotoData = await fotoRes.json();
-        if (fotoData.ok) s.fotoUrl = fotoData.url;
-      } catch(e) {}
+      if (!inpFoto) continue;
+      const fotosData = JSON.parse(inpFoto.dataset.fotos || '[]');
+      if (fotosData.length === 0) continue;
+
+      const urls = [];
+      for (let i = 0; i < fotosData.length; i++) {
+        showToast(`Subiendo foto ${i+1}/${fotosData.length} de ${s.nombre}...`, false);
+        try {
+          const fRes = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'uploadFoto', base64: fotosData[i].base64, fileName: `${s.nombre}_${i+1}_${fotosData[i].filename}`, obra, fecha })
+          });
+          const fData = await fRes.json();
+          if (fData.ok) urls.push(fData.url);
+        } catch(e) {}
+      }
+      if (urls.length > 0) s.fotoUrl = urls.join(' | ');
     }
 
     // 2. Enviar parte
