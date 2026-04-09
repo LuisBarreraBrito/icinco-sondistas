@@ -1476,7 +1476,7 @@ async function extraerTextoPDF(file) {
 }
 
 // ── Extractor de datos por patrones ───────────────────────────────────
-function extraerDatosPresupuesto(t) {
+function extraerDatosPresupuesto(texto) {
   const d = {
     nObra: null, nombreObra: null, direccion: null,
     contacto: null, telefono: null,
@@ -1485,71 +1485,72 @@ function extraerDatosPresupuesto(t) {
     nBarrenas: null, profBarrenas: null
   };
 
+  // Normalizar para búsquedas de texto: párrafos → ||, saltos → espacio
+  const t = texto.replace(/\n\n+/g, '||').replace(/\n/g, ' ').replace(/  +/g, ' ');
+
   // nObra
   let m = t.match(/PRESUPUESTO\s+N[ºo°]\s*(\d+)/i);
   if (m) d.nObra = m[1];
 
-  // nombreObra + direccion: en PDF.js el texto de la carta aparece concatenado con espacios
-  // El bloque "E.G. Nombre  Dirección" se separa por doble espacio
-  const mEG = t.match(/E\.G\.\s+[^\n]{3,120}/i);
-  if (mEG) {
-    const bloque = mEG[0];
-    const partes = bloque.split(/\s{2,}/);
-    d.nombreObra = partes[0].trim().replace(/\.\s*$/, '');
-    if (partes.length > 1) {
-      d.direccion = partes[1].trim().replace(/\.\s*$/, '');
-    }
-  }
-  // Si no hay "E.G." buscar "Obra: NombreObra"
-  if (!d.nombreObra) {
-    const mObra = t.match(/Obra:\s*([^\n\.]{5,80})/i);
-    if (mObra) d.nombreObra = mObra[1].trim().replace(/\.\s*$/, '');
+  // nombreObra + direccion: "E.G. Nombre || Dirección ||"
+  m = t.match(/(E\.G\.[^|]{3,60}?)\s*\|\|\s*([^|]{5,120}?)\s*\|\|/);
+  if (m) {
+    d.nombreObra = m[1].trim().replace(/\.\s*$/, '');
+    d.direccion  = m[2].trim().replace(/\.\s*$/, '');
   }
 
-  // Interlocutor en obra + teléfono asociado
-  m = t.match(/Interlocutor\s+en\s+obra[\s:]+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\s]{5,50?})(?:\s+Tel[eé]fono[\s:]+([\d\s]{9,12}))?/i);
+  // Interlocutor en obra + teléfono
+  m = t.match(/Interlocutor\s+en\s+obra[\s:]+([A-ZÁÉÍÓÚÑ][^|]{5,50}?)(?:\s+Tel[eé]fono[\s:]+(\d[\d\s]{8,11}))?(?:\||$)/i);
   if (m) {
     d.contacto = m[1].trim();
-    if (m[2]) d.telefono = m[2].replace(/\s/g,'').trim();
+    if (m[2]) d.telefono = m[2].replace(/\s/g, '').trim();
   }
 
-  // Si no hay interlocutor, buscar teléfono de contacto directo (no el de ICINCO 922504440)
-  if (!d.telefono) {
-    const telMatches = [...t.matchAll(/((?:6|7)\d{2}[\s]?\d{3}[\s]?\d{3})/g)];
-    const telFiltrado = telMatches.map(x => x[1].replace(/\s/g,'')).filter(tel => tel.length === 9);
-    if (telFiltrado.length > 0) d.telefono = telFiltrado[0];
-  }
-
-  // ── SONDEOS ──
-  // Buscar descripción libre: "X sondeo(s) de Y m(etros) [+ Z de excavación]"
-  // Puede estar en la columna LOTE de SC907 o como texto libre antes de la tabla
+  // Sondeos: "X sondeo(s) de Y m(etros) [+ Z de excavación]"
   m = t.match(/(\d+)\s+[Ss]ondeo[s]?\s+de\s+(\d+)\s*m(?:etros?)?(?:\s*\+\s*(\d+)\s*de\s*excavaci[oó]n)?/);
   if (m) {
-    d.nSondeos   = parseInt(m[1]);
-    const profS  = parseInt(m[2]);
-    const excav  = m[3] ? parseInt(m[3]) : 0;
-    d.profSondeos = profS + excav;
-  }
-  // Si no hay patrón claro → nSondeos y profSondeos quedan null (usuario los rellena)
-
-  // SPT SC911
-  m = t.match(/SC911\s+(\d+)\s+[\d,.]+/);
-  if (m) d.spt = parseInt(m[1]);
-
-  // DPSH SC921
-  m = t.match(/SC921\s+(\d+)\s+[\d,.]+/);
-  if (m) {
-    d.nDpsh = parseInt(m[1]);
-    // profundidad DPSH: buscar "hasta Xm" o "X metros" cerca de SC921
-    const mProf = t.match(/SC921[^\n]{0,60}?(\d+)\s*m(?:etros?)?/i);
-    if (mProf) d.profDpsh = parseInt(mProf[1]);
+    d.nSondeos    = parseInt(m[1]);
+    d.profSondeos = parseInt(m[2]) + (m[3] ? parseInt(m[3]) : 0);
   }
 
-  // Barrenas SC908
-  m = t.match(/SC908\s+(\d+)\s+[\d,.]+/);
-  if (m) d.nBarrenas = parseInt(m[1]);
+  // SPT / DPSH / Barrenas via mapa código→UDES
+  const mapa = extraerMapaUdes(texto);
+  if (mapa['SC911']) d.spt       = mapa['SC911'];
+  if (mapa['SC921']) d.nDpsh     = mapa['SC921'];
+  if (mapa['SC908']) d.nBarrenas = mapa['SC908'];
 
   return d;
+}
+
+function extraerMapaUdes(raw) {
+  const mBloque = raw.match(/Trabajos de campo([\s\S]*?)Suma de importes/i);
+  if (!mBloque) return {};
+  const bloque = mBloque[1];
+
+  // Detectar formato: columna (≥3 códigos SC juntos al inicio) vs intercalado
+  const codsInicio = (bloque.substring(0, 300).match(/\bSC\d{3,4}\b/g) || []);
+  const esColumna = codsInicio.length >= 3;
+
+  // Todos los códigos en orden
+  const codigos = bloque.match(/\b(SC\d{3,4}|VA\d{3})\b/g) || [];
+
+  // UDES: enteros puros 1-4 dígitos entre \n\n
+  const partes = bloque.split(/\n\n/);
+  const udes = partes
+    .map(p => p.trim())
+    .filter(p => /^\d{1,4}$/.test(p))
+    .map(p => parseInt(p));
+
+  const mapa = {};
+  if (esColumna) {
+    codigos.forEach((cod, i) => { if (i < udes.length) mapa[cod] = udes[i]; });
+  } else {
+    // Intercalado: SC901 tiene su UDES antes del bloque final → saltar primero
+    const sinSC901 = codigos.filter(c => c !== 'SC901');
+    const udesSin  = (codigos[0] === 'SC901' && udes.length > 0) ? udes.slice(1) : udes;
+    sinSC901.forEach((cod, i) => { if (i < udesSin.length) mapa[cod] = udesSin[i]; });
+  }
+  return mapa;
 }
 
 
