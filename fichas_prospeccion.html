@@ -688,6 +688,15 @@
     </div>
 
     <!-- Acciones -->
+    <div id="debug-texto" style="display:none;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:#a07800;text-transform:uppercase;margin-bottom:4px;">
+        🔍 Texto extraído del PDF (primeros 1500 chars)
+      </div>
+      <textarea id="debug-output" style="width:100%;height:120px;font-size:9px;font-family:monospace;background:#f8f8f8;border:1px solid #ccc;padding:6px;resize:vertical;" readonly></textarea>
+      <button onclick="document.getElementById('debug-texto').style.display='none'" 
+        style="font-size:10px;border:none;background:#ccc;padding:2px 8px;cursor:pointer;margin-top:2px;">Cerrar</button>
+    </div>
+
     <div class="acciones">
       <button class="btn-primary" onclick="generarPDF()">
         ⬇️ Descargar PDF
@@ -1418,6 +1427,13 @@ async function procesarPDF(input) {
     const texto = await extraerTextoPDF(file);
     setEstado('🔍', 'Extrayendo datos...');
     const datos = extraerDatosPresupuesto(texto);
+    // Debug: mostrar texto extraído
+    const dbg = document.getElementById('debug-output');
+    const dbgDiv = document.getElementById('debug-texto');
+    if (dbg && dbgDiv) {
+      dbg.value = texto.substring(0, 1500);
+      dbgDiv.style.display = 'block';
+    }
     
     rellenarCampo('nObra',        datos.nObra);
     rellenarCampo('nombreObra',   datos.nombreObra);
