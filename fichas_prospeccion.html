@@ -1427,8 +1427,6 @@ async function procesarPDF(input) {
     const texto = await extraerTextoPDF(file);
     setEstado('🔍', 'Extrayendo datos...');
     const datos = extraerDatosPresupuesto(texto);
-    // Debug temporal: mostrar primeros 800 chars del texto extraído
-    alert('TEXTO PDF (primeros 800 chars):\n\n' + texto.substring(0, 800));
     
     rellenarCampo('nObra',        datos.nObra);
     rellenarCampo('nombreObra',   datos.nombreObra);
@@ -1506,29 +1504,32 @@ function extraerDatosPresupuesto(texto) {
     nBarrenas: null, profBarrenas: null
   };
 
-  // Normalizar para búsquedas de texto: párrafos → ||, saltos → espacio
-  const t = texto.replace(/\n\n+/g, '||').replace(/\n/g, ' ').replace(/  +/g, ' ');
+  // ── Búsquedas en texto RAW (con \n) ──────────────────────────────────
 
   // nObra
-  let m = t.match(/PRESUPUESTO\s+N[ºo°]\s*(\d+)/i);
+  let m = texto.match(/PRESUPUESTO\s+N[ºo°]\s*(\d+)/i);
   if (m) d.nObra = m[1];
 
-  // nombreObra + direccion: "E.G. Nombre || Dirección ||"
-  m = t.match(/(E\.G\.[^|]{3,60}?)\s*\|\|\s*([^|]{5,120}?)\s*\|\|/);
+  // nombreObra + direccion: E.G. en línea propia, dirección en la siguiente
+  m = texto.match(/^(E\.G\.[^\n]{3,80})\n([^\n]{10,120})$/m);
   if (m) {
     d.nombreObra = m[1].trim().replace(/\.\s*$/, '');
-    d.direccion  = m[2].trim().replace(/\.\s*$/, '');
+    // La siguiente línea es la dirección si no empieza por PRESUPUESTO/CLIENTE/etc
+    const sig = m[2].trim();
+    if (!/^(PRESUPUESTO|CLIENTE|Obra:|Cliente:|Fecha:|SC\d)/i.test(sig)) {
+      d.direccion = sig.replace(/\.\s*$/, '');
+    }
   }
 
-  // Interlocutor en obra + teléfono
-  m = t.match(/Interlocutor\s+en\s+obra[\s:]+([A-ZÁÉÍÓÚÑ][^|]{5,50}?)(?:\s+Tel[eé]fono[\s:]+(\d[\d\s]{8,11}))?(?:\||$)/i);
+  // Interlocutor en obra + teléfono (texto raw)
+  m = texto.match(/Interlocutor\s+en\s+obra[\s:]+([A-ZÁÉÍÓÚÑ][^\n]{5,60})(?:\nTeléfono[\s:]+(\d[\d\s]{8,11}))?/i);
   if (m) {
     d.contacto = m[1].trim();
     if (m[2]) d.telefono = m[2].replace(/\s/g, '').trim();
   }
 
   // Sondeos: "X sondeo(s) de Y m(etros) [+ Z de excavación]"
-  m = t.match(/(\d+)\s+[Ss]ondeo[s]?\s+de\s+(\d+)\s*m(?:etros?)?(?:\s*\+\s*(\d+)\s*de\s*excavaci[oó]n)?/);
+  m = texto.match(/(\d+)\s+[Ss]ondeo[s]?\s+de\s+(\d+)\s*m(?:etros?)?(?:\s*\+\s*(\d+)\s*de\s*excavaci[oó]n)?/);
   if (m) {
     d.nSondeos    = parseInt(m[1]);
     d.profSondeos = parseInt(m[2]) + (m[3] ? parseInt(m[3]) : 0);
