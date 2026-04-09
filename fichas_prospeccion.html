@@ -1489,26 +1489,36 @@ function extraerDatosPresupuesto(t) {
   let m = t.match(/PRESUPUESTO\s+N[ºo°]\s*(\d+)/i);
   if (m) d.nObra = m[1];
 
-  // nombreObra: línea que empieza por "E.G." o "Obra:"
-  m = t.match(/(?:Obra:\s*)?([A-Z][^\n.]*(?:E\.G\.|Estudio Geot)[^\n.]{3,50})/i);
-  if (!m) m = t.match(/E\.G\.\s+[^\n]{3,60}/i);
-  if (m) d.nombreObra = m[0].replace(/^Obra:\s*/i,'').replace(/\.\s*$/, '').trim();
+  // nombreObra + direccion: en PDF.js el texto de la carta aparece concatenado con espacios
+  // El bloque "E.G. Nombre  Dirección" se separa por doble espacio
+  const mEG = t.match(/E\.G\.\s+[^\n]{3,120}/i);
+  if (mEG) {
+    const bloque = mEG[0];
+    const partes = bloque.split(/\s{2,}/);
+    d.nombreObra = partes[0].trim().replace(/\.\s*$/, '');
+    if (partes.length > 1) {
+      d.direccion = partes[1].trim().replace(/\.\s*$/, '');
+    }
+  }
+  // Si no hay "E.G." buscar "Obra: NombreObra"
+  if (!d.nombreObra) {
+    const mObra = t.match(/Obra:\s*([^\n\.]{5,80})/i);
+    if (mObra) d.nombreObra = mObra[1].trim().replace(/\.\s*$/, '');
+  }
 
-  // direccion: buscar la línea de dirección (calle, avenida, camino, urbanización, etc.)
-  m = t.match(/(?:C\/|Calle|Avda?|Avenida|Camino|Carretera|C\.T\.R|Ctra|Hernandez|Hospital|Pabellon)[^\n]{5,80}/i);
-  if (m) d.direccion = m[0].trim().replace(/\.$/, '');
+  // Interlocutor en obra + teléfono asociado
+  m = t.match(/Interlocutor\s+en\s+obra[\s:]+([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ\s]{5,50?})(?:\s+Tel[eé]fono[\s:]+([\d\s]{9,12}))?/i);
+  if (m) {
+    d.contacto = m[1].trim();
+    if (m[2]) d.telefono = m[2].replace(/\s/g,'').trim();
+  }
 
-  // Interlocutor en obra
-  m = t.match(/Interlocutor\s+en\s+obra[\s:]+([A-ZÁÉÍÓÚÑ][^\n\d]{5,50?})(?:\s+Tel[eé]fono)?/i);
-  if (m) d.contacto = m[1].trim();
-
-  // Teléfono del interlocutor (después de "Teléfono" cerca del interlocutor, no el de ICINCO)
-  // Buscar teléfono que NO sea 922504440 ni 922 504440
-  const telMatches = [...t.matchAll(/((?:6|7|9)\d{2}[\s.]?\d{3}[\s.]?\d{3})/g)];
-  const telFiltrado = telMatches
-    .map(x => x[1].replace(/[\s.]/g,''))
-    .filter(tel => tel !== '922504440' && tel.length >= 9);
-  if (telFiltrado.length > 0) d.telefono = telFiltrado[0];
+  // Si no hay interlocutor, buscar teléfono de contacto directo (no el de ICINCO 922504440)
+  if (!d.telefono) {
+    const telMatches = [...t.matchAll(/((?:6|7)\d{2}[\s]?\d{3}[\s]?\d{3})/g)];
+    const telFiltrado = telMatches.map(x => x[1].replace(/\s/g,'')).filter(tel => tel.length === 9);
+    if (telFiltrado.length > 0) d.telefono = telFiltrado[0];
+  }
 
   // ── SONDEOS ──
   // Buscar descripción libre: "X sondeo(s) de Y m(etros) [+ Z de excavación]"
