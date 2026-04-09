@@ -1486,7 +1486,17 @@ async function extraerTextoPDF(file) {
   for (let i = 1; i <= paginas; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    texto += content.items.map(item => item.str).join(' ') + '\n';
+    // Reconstruir texto respetando saltos de línea (hasEOL indica fin de línea)
+    let lineaActual = '';
+    for (const item of content.items) {
+      lineaActual += item.str;
+      if (item.hasEOL) {
+        texto += lineaActual.trim() + '\n';
+        lineaActual = '';
+      }
+    }
+    if (lineaActual.trim()) texto += lineaActual.trim() + '\n';
+    texto += '\n'; // separador entre páginas
   }
   return texto;
 }
