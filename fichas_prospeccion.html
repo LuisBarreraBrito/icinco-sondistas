@@ -1427,13 +1427,8 @@ async function procesarPDF(input) {
     const texto = await extraerTextoPDF(file);
     setEstado('🔍', 'Extrayendo datos...');
     const datos = extraerDatosPresupuesto(texto);
-    // Debug: mostrar texto extraído
-    const dbg = document.getElementById('debug-output');
-    const dbgDiv = document.getElementById('debug-texto');
-    if (dbg && dbgDiv) {
-      dbg.value = texto.substring(0, 1500);
-      dbgDiv.style.display = 'block';
-    }
+    // Debug temporal: mostrar primeros 800 chars del texto extraído
+    alert('TEXTO PDF (primeros 800 chars):\n\n' + texto.substring(0, 800));
     
     rellenarCampo('nObra',        datos.nObra);
     rellenarCampo('nombreObra',   datos.nombreObra);
