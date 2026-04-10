@@ -427,7 +427,7 @@ function initMap(lat, lon) {
     if (leafletMarker) leafletMarker.setLatLng([lat, lon]);
     return;
   }
-  leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 17);
+  leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 16);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19}).addTo(leafletMap);
   leafletMarker = L.marker([lat, lon]).addTo(leafletMap);
 }
@@ -764,7 +764,7 @@ async function generarPDF() {
 async function capturarMapa() {
   if (!ultimaLat || !ultimaLon) return null;
   const lat = ultimaLat, lon = ultimaLon;
-  const zoom = 17;
+  const zoom = 16;
 
   // Convertir lat/lon a coordenadas de tile
   function latLonToTile(lat, lon, z) {
