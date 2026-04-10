@@ -423,11 +423,11 @@ function initMap(lat, lon) {
   const el = document.getElementById('leaflet-map');
   if (!el) return;
   if (leafletMap) {
-    leafletMap.setView([lat, lon], 15);
+    leafletMap.setView([lat, lon], 16);
     if (leafletMarker) leafletMarker.setLatLng([lat, lon]);
     return;
   }
-  leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 15);
+  leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 16);
   // Grafcan/IDECanarias - ortofoto cenital de Canarias
   L.tileLayer.wms('https://idecan1.grafcan.es/ServicioWMS/OrtoExpress', {
     layers: 'ortoexpress',
