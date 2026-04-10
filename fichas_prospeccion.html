@@ -500,11 +500,10 @@ function preview() {
           ['TP', d.tp||'-'],
           ['Coment.', d.otro||'-'],
           ['Agua', d.agua||'-', d.agua==='ICINCO'?'SI':d.agua==='CLIENTE'?'NO':null],
-        ].map(([l,val,tog]) => `
-          <div class="f-pros-row">
-            <div class="f-pros-cell lbl">${l}</div>
-            <div class="f-pros-cell ${tog==='NO'?'rojo':tog==='SI'?'verde'}"> ${val}</div>
-          </div>`).join('')}
+        ].map(([l,val,tog]) => {
+          const cls = tog==='NO' ? 'rojo' : tog==='SI' ? 'verde' : '';
+          return `<div class="f-pros-row"><div class="f-pros-cell lbl">${l}</div><div class="f-pros-cell ${cls}"> ${val}</div></div>`;
+        }).join('')}
       </div>
       <div class="f-pros-col">
         <div class="f-pros-header">DPSH</div>
