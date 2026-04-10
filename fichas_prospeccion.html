@@ -427,8 +427,8 @@ function initMap(lat, lon) {
     if (leafletMarker) leafletMarker.setLatLng([lat, lon]);
     return;
   }
-  leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 16);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19}).addTo(leafletMap);
+  leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 17);
+  L.tileLayer('https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg', {maxZoom:20, attribution:'PNOA © IGN España'}).addTo(leafletMap);
   leafletMarker = L.marker([lat, lon]).addTo(leafletMap);
 }
 
@@ -764,7 +764,7 @@ async function generarPDF() {
 async function capturarMapa() {
   if (!ultimaLat || !ultimaLon) return null;
   const lat = ultimaLat, lon = ultimaLon;
-  const zoom = 16;
+  const zoom = 17;
 
   // Convertir lat/lon a coordenadas de tile
   function latLonToTile(lat, lon, z) {
@@ -789,7 +789,8 @@ async function capturarMapa() {
       const tx = tile.x + dx, ty = tile.y + dy;
       const px = (dx + offX) * tileSize, py = (dy + offY) * tileSize;
       // Esri World Imagery - permite crossOrigin
-      const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+      // PNOA IGN España - ortofoto cenital oficial
+      const url = `https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&TILEMATRIX=${zoom}&TILEROW=${ty}&TILECOL=${tx}&FORMAT=image/jpeg`;
       promises.push(new Promise(res => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
