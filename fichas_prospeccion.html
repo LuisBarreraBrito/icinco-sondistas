@@ -428,7 +428,12 @@ function initMap(lat, lon) {
     return;
   }
   leafletMap = L.map('leaflet-map', {zoomControl:true, attributionControl:false}).setView([lat, lon], 17);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19}).addTo(leafletMap);
+  // PNOA IGN España - ortofoto cenital oficial
+  L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{y}.jpeg', {
+    maxZoom: 20,
+    tms: false,
+    attribution: 'PNOA © IGN España'
+  }).addTo(leafletMap);
   leafletMarker = L.marker([lat, lon]).addTo(leafletMap);
 }
 
@@ -769,14 +774,21 @@ async function generarPDF() {
 
 async function capturarMapa() {
   if (!ultimaLat || !ultimaLon) return null;
-  
-  // Esperar a que los tiles de Leaflet carguen completamente
-  await new Promise(r => setTimeout(r, 1500));
-  
-  const el = document.getElementById('leaflet-map');
-  if (!el) return null;
 
-  // Cargar html2canvas dinámicamente
+  // Forzar tamaño fijo 4:2.5 al div antes de capturar
+  const el = document.getElementById('leaflet-map');
+  if (!el || !leafletMap) return null;
+
+  const W = 600, H = 375;
+  const prevW = el.style.width, prevH = el.style.height;
+  el.style.width = W + 'px';
+  el.style.height = H + 'px';
+  leafletMap.invalidateSize();
+
+  // Esperar tiles
+  await new Promise(r => setTimeout(r, 2000));
+
+  // Cargar html2canvas
   if (!window.html2canvas) {
     await new Promise((res, rej) => {
       const s = document.createElement('script');
@@ -786,19 +798,45 @@ async function capturarMapa() {
     });
   }
 
+  let result = null;
   try {
     const canvas = await html2canvas(el, {
-      useCORS: true,
-      allowTaint: true,
-      scale: 1,
-      logging: false,
-      backgroundColor: null
+      useCORS: true, allowTaint: true,
+      width: W, height: H, scale: 1,
+      logging: false, backgroundColor: '#e0e0e0'
     });
-    return canvas.toDataURL('image/jpeg', 0.88);
+
+    // Añadir marcador encima
+    const ctx = canvas.getContext('2d');
+    const cx = W/2, cy = H/2;
+    ctx.fillStyle = '#e74c3c';
+    ctx.strokeStyle = '#c0392b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, 10, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 2);
+    ctx.lineTo(cx + 7, cy - 2);
+    ctx.lineTo(cx, cy + 10);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    result = canvas.toDataURL('image/jpeg', 0.88);
   } catch(e) {
     console.log('html2canvas error:', e);
-    return null;
   }
+
+  // Restaurar tamaño original
+  el.style.width = prevW;
+  el.style.height = prevH;
+  leafletMap.invalidateSize();
+
+  return result;
 }
 
 async function cargarImagenBase64(url) {
