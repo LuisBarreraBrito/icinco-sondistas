@@ -764,27 +764,63 @@ async function generarPDF() {
 async function capturarMapa() {
   if (!ultimaLat || !ultimaLon) return null;
   const lat = ultimaLat, lon = ultimaLon;
-  // Usar Esri World Imagery via staticmap — misma fuente que el mapa de preview
-  // Intentar con fetch para obtener blob y convertir a base64
-  const urls = [
-    `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=17&size=600x350&maptype=mapnik&markers=${lat},${lon},red`,
-    `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=350&center=lonlat:${lon},${lat}&zoom=17&marker=lonlat:${lon},${lat};color:%23ff0000;size:medium&apiKey=6c53a4e8b4de4a5ca7d3b5e3e5c6e6e6`
-  ];
-  
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      return await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-    } catch(e) { continue; }
+  const zoom = 17;
+
+  // Convertir lat/lon a coordenadas de tile
+  function latLonToTile(lat, lon, z) {
+    const x = Math.floor((lon + 180) / 360 * Math.pow(2, z));
+    const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+    return {x, y};
   }
-  return null;
+
+  const tile = latLonToTile(lat, lon, zoom);
+  const tileSize = 256;
+  const cols = 3, rows = 2; // grid de tiles
+  const offX = Math.floor(cols/2), offY = Math.floor(rows/2);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = tileSize * cols;
+  canvas.height = tileSize * rows;
+  const ctx = canvas.getContext('2d');
+
+  const promises = [];
+  for (let dy = -offY; dy <= offY; dy++) {
+    for (let dx = -offX; dx <= offX; dx++) {
+      const tx = tile.x + dx, ty = tile.y + dy;
+      const px = (dx + offX) * tileSize, py = (dy + offY) * tileSize;
+      // Esri World Imagery - permite crossOrigin
+      const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+      promises.push(new Promise(res => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { ctx.drawImage(img, px, py, tileSize, tileSize); res(); };
+        img.onerror = () => res();
+        img.src = url;
+      }));
+    }
+  }
+
+  await Promise.all(promises);
+
+  // Marcador en el centro
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  ctx.fillStyle = '#e74c3c';
+  ctx.beginPath();
+  ctx.arc(cx, cy - 4, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath();
+  ctx.moveTo(cx - 6, cy - 4);
+  ctx.lineTo(cx + 6, cy - 4);
+  ctx.lineTo(cx, cy + 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(cx, cy - 4, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  return canvas.toDataURL('image/jpeg', 0.88);
 }
 
 // ── Limpiar ──
