@@ -331,6 +331,7 @@ async function loadData() {
       };
     });
 
+    sondistaPalette = {};
     populateFilterSelects();
     applyFilters();
     updateStats();
@@ -387,6 +388,42 @@ function clearFilters() {
   applyFilters();
 }
 
+// Paleta de colores por sondista (fondo suave sobre oscuro)
+const SONDISTA_COLORS = [
+  'rgba(240,165,0,0.07)',    // naranja ICINCO
+  'rgba(59,130,246,0.07)',   // azul
+  'rgba(34,197,94,0.07)',    // verde
+  'rgba(168,85,247,0.07)',   // morado
+  'rgba(239,68,68,0.07)',    // rojo
+  'rgba(20,184,166,0.07)',   // teal
+  'rgba(251,191,36,0.07)',   // amarillo
+  'rgba(236,72,153,0.07)',   // rosa
+];
+
+const SONDISTA_BORDER_COLORS = [
+  'rgba(240,165,0,0.35)',
+  'rgba(59,130,246,0.35)',
+  'rgba(34,197,94,0.35)',
+  'rgba(168,85,247,0.35)',
+  'rgba(239,68,68,0.35)',
+  'rgba(20,184,166,0.35)',
+  'rgba(251,191,36,0.35)',
+  'rgba(236,72,153,0.35)',
+];
+
+let sondistaPalette = {};
+
+function getSondistaColor(sondista) {
+  if (!sondistaPalette[sondista]) {
+    const idx = Object.keys(sondistaPalette).length % SONDISTA_COLORS.length;
+    sondistaPalette[sondista] = idx;
+  }
+  return {
+    bg: SONDISTA_COLORS[sondistaPalette[sondista]],
+    border: SONDISTA_BORDER_COLORS[sondistaPalette[sondista]]
+  };
+}
+
 function renderTable() {
   const tbody = document.getElementById('table-body');
   if (filteredRows.length === 0) {
@@ -401,9 +438,10 @@ function renderTable() {
     const mSond = r.tipo === 'sondeo'  ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--green)">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
     const mBarr = r.tipo === 'barrena' ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent)">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
     const mDpsh = r.tipo === 'dpsh'    ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:#c084fc">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
-    return `<tr>
+    const sc = getSondistaColor(r.sondista);
+    return `<tr style="background:${sc.bg};border-left:3px solid ${sc.border};">
       <td>${r.fecha}</td>
-      <td><strong>${r.sondista}</strong></td>
+      <td><strong style="color:var(--text)">${r.sondista}</strong></td>
       <td>${r.ayudante}</td>
       <td style="font-size:12px">${r.obra}</td>
       <td>${r.maquina}</td>
