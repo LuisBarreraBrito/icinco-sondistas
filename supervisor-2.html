@@ -459,8 +459,8 @@ function renderTable() {
       <td>${mDpsh}</td>
       <td style="font-size:11px;color:var(--muted);max-width:200px">${r.incidencias}</td>
       <td style="white-space:nowrap;">
-        <button onclick="openEdit(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;" title="Editar">✏️</button>
-        <button onclick="deleteRow(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑️</button>
+        <button onclick="openEdit('${r.timestamp}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;" title="Editar">✏️</button>
+        <button onclick="deleteRow('${r.timestamp}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑️</button>
       </td>
     </tr>`;
   }, '');
@@ -595,10 +595,10 @@ function renderResumenSemanal(semanas) {
 let editIdx = null;
 let sortedCache = [];
 
-function openEdit(idx) {
-  editIdx = idx;
-  const r = sortedCache[idx];
+function openEdit(timestamp) {
+  const r = sortedCache.find(x => x.timestamp === timestamp);
   if (!r) return;
+  editIdx = timestamp;
   document.getElementById('ed-fecha').value = r.fecha;
   document.getElementById('ed-obra').value = r.obra;
   document.getElementById('ed-sondeo').value = r.sondeo;
@@ -606,8 +606,7 @@ function openEdit(idx) {
   document.getElementById('ed-final').value = r.cotaFinal;
   document.getElementById('ed-metros').value = r.metrosDia;
   document.getElementById('ed-incidencias').value = r.incidencias;
-  const mo = document.getElementById('modal-overlay');
-  mo.style.display = 'flex';
+  document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 function closeModal() {
@@ -617,7 +616,8 @@ function closeModal() {
 
 async function saveEdit() {
   if (editIdx === null) return;
-  const r = sortedCache[editIdx];
+  const r = sortedCache.find(x => x.timestamp === editIdx);
+  if (!r) return;
   r.fecha = document.getElementById('ed-fecha').value;
   r.obra = document.getElementById('ed-obra').value;
   r.sondeo = document.getElementById('ed-sondeo').value;
@@ -638,8 +638,8 @@ async function saveEdit() {
   showSpinner(false);
 }
 
-async function deleteRow(idx) {
-  const r = sortedCache[idx];
+async function deleteRow(timestamp) {
+  const r = sortedCache.find(x => x.timestamp === timestamp);
   if (!r) return;
   if (!confirm(`¿Eliminar el registro de ${r.sondista} — ${r.sondeo} — ${r.fecha}?`)) return;
   showSpinner(true);
