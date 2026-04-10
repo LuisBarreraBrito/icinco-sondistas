@@ -776,29 +776,40 @@ async function generarPDF() {
 
 async function capturarMapa() {
   if (!ultimaLat || !ultimaLon) return null;
+  const lat = ultimaLat, lon = ultimaLon;
 
-  // Forzar tamaño fijo 4:2.5 al div antes de capturar
-  const el = document.getElementById('leaflet-map');
-  if (!el || !leafletMap) return null;
+  // Calcular bbox en EPSG:4326 centrado en las coordenadas
+  const dLon = 0.005, dLat = 0.003;
+  const bbox = `${lon-dLon},${lat-dLat},${lon+dLon},${lat+dLat}`;
 
-  const W = 600, H = 375;
-  const prevW = el.style.width, prevH = el.style.height;
-  el.style.width = W + 'px';
-  el.style.height = H + 'px';
-  leafletMap.invalidateSize();
+  // WMS Grafcan OrtoExpress - imagen cenital directa
+  const wmsUrl = `https://idecan1.grafcan.es/ServicioWMS/OrtoExpress?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=ortoexpress&STYLES=&FORMAT=image/jpeg&SRS=EPSG:4326&BBOX=${bbox}&WIDTH=600&HEIGHT=375`;
 
-  // Esperar tiles
-  await new Promise(r => setTimeout(r, 2000));
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 600; c.height = 375;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, 600, 375);
+        // Marcador central
+        const cx = 300, cy = 187;
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath(); ctx.arc(cx, cy-8, 10, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(cx, cy-8, 4, 0, Math.PI*2); ctx.fill();
+        resolve(c.toDataURL('image/jpeg', 0.88));
+      } catch(e) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = wmsUrl;
+  });
+}
 
-  // Cargar html2canvas
-  if (!window.html2canvas) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      s.onload = res; s.onerror = rej;
-      document.head.appendChild(s);
-    });
-  }
+async function cargarImagenBase64(url) { return null; }
+
 
   let result = null;
   try {
