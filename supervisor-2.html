@@ -201,6 +201,8 @@
             <th>Ubicación</th>
             <th>Sondeo</th>
             <th>M. Sondeo</th>
+            <th>C. Inicio</th>
+            <th>C. Final</th>
             <th>M. Barrena</th>
             <th>M. DPSH</th>
             <th>Incidencias</th>
@@ -208,7 +210,7 @@
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr><td colspan="11" class="empty-state">Cargando datos...</td></tr>
+          <tr><td colspan="13" class="empty-state">Cargando datos...</td></tr>
         </tbody>
       </table>
     </div>
@@ -428,7 +430,7 @@ function getSondistaColor(sondista) {
 function renderTable() {
   const tbody = document.getElementById('table-body');
   if (filteredRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Sin datos para los filtros aplicados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty-state">Sin datos para los filtros aplicados</td></tr>';
     return;
   }
 
@@ -439,6 +441,8 @@ function renderTable() {
     const mSond = r.tipo === 'sondeo'  ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--green)">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
     const mBarr = r.tipo === 'barrena' ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent)">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
     const mDpsh = r.tipo === 'dpsh'    ? `<span style="font-family:var(--fh);font-size:15px;font-weight:700;color:#c084fc">${r.metrosDia} m</span>` : '<span style="color:var(--border)">—</span>';
+    const cInicio = r.tipo === 'sondeo' ? `<span style="color:var(--muted);font-size:12px;">${r.cotaInicio} m</span>` : '<span style="color:var(--border)">—</span>';
+    const cFinal  = r.tipo === 'sondeo' ? `<span style="color:var(--muted);font-size:12px;">${r.cotaFinal} m</span>` : '<span style="color:var(--border)">—</span>';
     const sc = getSondistaColor(r.sondista);
     return `<tr style="background:${sc.bg};border-left:3px solid ${sc.border};">
       <td>${r.fecha}</td>
@@ -449,6 +453,8 @@ function renderTable() {
       <td>${ubicBadge}</td>
       <td><strong>${r.sondeo}</strong></td>
       <td>${mSond}</td>
+      <td>${cInicio}</td>
+      <td>${cFinal}</td>
       <td>${mBarr}</td>
       <td>${mDpsh}</td>
       <td style="font-size:11px;color:var(--muted);max-width:200px">${r.incidencias}</td>
