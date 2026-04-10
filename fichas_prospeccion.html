@@ -27,7 +27,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--fb); font-s
 }
 .panel-preview {
   background: #1a1f2e; display: flex; flex-direction: column;
-  align-items: center; padding: 20px; overflow-y: auto; gap: 12px;
+  align-items: center; padding: 12px 8px; overflow-y: auto; gap: 8px;
+  align-items: center; padding: 12px 8px; overflow-y: auto; gap: 8px;
 }
 
 /* Cabecera del panel */
@@ -126,16 +127,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--fb); font-s
 /* Nota mapa */
 .nota-mapa {
   padding: 8px 14px; border-radius: 4px; font-size: 11px; font-weight: 600;
-  text-align: center; max-width: 740px; width: 100%;
+  text-align: center; width: 100%;
 }
 .nota-mapa.info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; }
 .nota-mapa.ok { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--green); }
 
 /* FICHA (blanco para imprimir) */
 .ficha {
-  background: #fff; width: 100%; max-width: 740px;
+  background: #fff;
+  width: 100%;
+  max-width: 1100px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-  font-family: Arial, sans-serif; font-size: 11px; color: #000;
+  font-family: Arial, sans-serif; font-size: 12px; color: #000;
 }
 .f-header { display: grid; grid-template-columns: 180px 1fr; border-bottom: 2px solid #000; }
 .f-logo { padding: 6px 8px; border-right: 1px solid #000; display:flex; align-items:center; }
