@@ -414,7 +414,8 @@ const SONDISTA_BORDER_COLORS = [
 let sondistaPalette = {};
 
 function getSondistaColor(sondista) {
-  if (!sondistaPalette[sondista]) {
+  if (!sondista) return { bg: 'transparent', border: 'transparent' };
+  if (sondistaPalette[sondista] === undefined) {
     const idx = Object.keys(sondistaPalette).length % SONDISTA_COLORS.length;
     sondistaPalette[sondista] = idx;
   }
