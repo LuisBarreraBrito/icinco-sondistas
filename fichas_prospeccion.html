@@ -762,21 +762,29 @@ async function generarPDF() {
 }
 
 async function capturarMapa() {
-  const el = document.getElementById('leaflet-map');
-  if (!el || !leafletMap) return null;
-  return new Promise((res) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height;
-      c.getContext('2d').drawImage(img,0,0);
-      res(c.toDataURL('image/jpeg',0.85));
-    };
-    img.onerror = () => res(null);
-    const lat=ultimaLat, lon=ultimaLon;
-    img.src=`https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=17&size=500x300&maptype=mapnik&markers=${lat},${lon},red`;
-  });
+  if (!ultimaLat || !ultimaLon) return null;
+  const lat = ultimaLat, lon = ultimaLon;
+  // Usar Esri World Imagery via staticmap — misma fuente que el mapa de preview
+  // Intentar con fetch para obtener blob y convertir a base64
+  const urls = [
+    `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=17&size=600x350&maptype=mapnik&markers=${lat},${lon},red`,
+    `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=350&center=lonlat:${lon},${lat}&zoom=17&marker=lonlat:${lon},${lat};color:%23ff0000;size:medium&apiKey=6c53a4e8b4de4a5ca7d3b5e3e5c6e6e6`
+  ];
+  
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      return await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch(e) { continue; }
+  }
+  return null;
 }
 
 // ── Limpiar ──
