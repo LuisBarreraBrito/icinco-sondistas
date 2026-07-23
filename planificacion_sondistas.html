@@ -364,7 +364,12 @@ function cambiarMes(delta) {
 }
 
 function toISO(d) {
-  return d.toISOString().slice(0,10);
+  // OJO: no usar d.toISOString() aquí — convierte a UTC y en husos horarios
+  // positivos (España) desplaza la fecha un día hacia atrás cerca de medianoche.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 // Devuelve array de semanas; cada semana es array de 7 fechas (lunes a domingo)
@@ -503,13 +508,13 @@ function abrirModal(asig, fechaPrellenada) {
   poblarSelects();
   document.getElementById('modalTitulo').textContent = asig ? 'Editar asignación' : 'Nueva asignación';
   document.getElementById('f_id').value = asig ? asig.id : '';
-  document.getElementById('f_obra').value = asig ? asig.obra : (obras[0] || '');
-  document.getElementById('f_trabajos_campo').value = asig ? asig.trabajos_campo : '';
-  document.getElementById('f_sondista').value = asig ? asig.sondista : (sondistas[0] || '');
-  document.getElementById('f_ayudante').value = asig ? asig.ayudante : '';
-  document.getElementById('f_fecha_inicio').value = asig ? asig.fecha_inicio : (fechaPrellenada || '');
-  document.getElementById('f_fecha_fin').value = asig ? asig.fecha_fin : (fechaPrellenada || '');
-  document.getElementById('f_observaciones').value = asig ? asig.observaciones : '';
+  document.getElementById('f_obra').value = asig ? (asig.obra || '') : (obras[0] || '');
+  document.getElementById('f_trabajos_campo').value = asig ? (asig.trabajos_campo || '') : '';
+  document.getElementById('f_sondista').value = asig ? (asig.sondista || '') : (sondistas[0] || '');
+  document.getElementById('f_ayudante').value = asig ? (asig.ayudante || '') : '';
+  document.getElementById('f_fecha_inicio').value = asig ? (asig.fecha_inicio || '') : (fechaPrellenada || '');
+  document.getElementById('f_fecha_fin').value = asig ? (asig.fecha_fin || '') : (fechaPrellenada || '');
+  document.getElementById('f_observaciones').value = asig ? (asig.observaciones || '') : '';
   document.getElementById('btnBorrar').style.display = asig ? 'inline-block' : 'none';
   document.getElementById('overlay').classList.add('open');
 }
