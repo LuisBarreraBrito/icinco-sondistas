@@ -122,6 +122,7 @@
   .tab-panel { display:none; }
   .tab-panel.active { display:block; }
   #tab-fichas iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
+  #tab-planificacion iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
 
 </style>
 </head>
@@ -158,6 +159,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchTab('partes',this)">📋 Partes</button>
     <button class="nav-tab" onclick="switchTab('fichas',this)">📄 Fichas de Prospección</button>
+    <button class="nav-tab" onclick="switchTab('planificacion',this)">🗓️ Planificación Sondistas</button>
   </div>
 
   <!-- Partes -->
@@ -239,6 +241,11 @@
   <!-- Fichas: iframe al generador independiente -->
   <div id="tab-fichas" class="tab-panel">
     <iframe id="fichas-iframe" src="" title="Generador de Fichas"></iframe>
+  </div>
+
+  <!-- Planificación de sondistas: iframe al calendario independiente -->
+  <div id="tab-planificacion" class="tab-panel">
+    <iframe id="planificacion-iframe" src="" title="Planificación de Sondistas"></iframe>
   </div>
 
 <!-- Modal editar -->
@@ -674,6 +681,13 @@ function switchTab(tab, btn) {
     const ifr = document.getElementById('fichas-iframe');
     if (!ifr.src || ifr.src === window.location.href) {
       ifr.src = 'fichas_prospeccion.html';
+    }
+  }
+  // Cargar iframe de planificación la primera vez
+  if (tab === 'planificacion') {
+    const ifr = document.getElementById('planificacion-iframe');
+    if (!ifr.src || ifr.src === window.location.href) {
+      ifr.src = 'planificacion_sondistas.html?v=' + Date.now();
     }
   }
 }

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ICINCO · Planificación de Sondistas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --azul: #185FA5;
+    --amarillo: #F2C94C;
+    --gris-borde: #d9dde3;
+    --gris-fondo: #f4f6f8;
+    --texto: #1f2937;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--gris-fondo);
+    margin: 0;
+    padding: 20px;
+    color: var(--texto);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--azul);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px 8px 0 0;
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .nav button {
+    background: var(--amarillo);
+    color: var(--azul);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .nav button:hover { opacity: 0.9; }
+  .nav span { font-weight: 600; min-width: 160px; text-align: center; }
+  .btn-add {
+    background: white;
+    color: var(--azul);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    padding: 10px 20px;
+    background: white;
+    border-left: 1px solid var(--gris-borde);
+    border-right: 1px solid var(--gris-borde);
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+  .calendar-wrap {
+    background: white;
+    border: 1px solid var(--gris-borde);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 16px;
+  }
+
+  .week-block { margin-bottom: 22px; }
+  .week-header {
+    display: grid;
+    grid-template-columns: 120px repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  .week-header .label { }
+  .week-header .day-head {
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--azul);
+    background: #eaf1fa;
+    padding: 4px 2px;
+    border-radius: 3px;
+  }
+  .week-header .day-head.otro-mes { color: #aab2bd; background: #f0f1f3; }
+  .week-header .day-head .num { display: block; font-size: 13px; }
+
+  .sondista-row {
+    display: grid;
+    grid-template-columns: 120px repeat(7, 1fr);
+    gap: 2px;
+    align-items: stretch;
+    margin-bottom: 2px;
+    min-height: 34px;
+  }
+  .sondista-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    padding-left: 4px;
+  }
+  .sondista-label .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .day-cell {
+    background: var(--gris-fondo);
+    border: 1px solid #eceff2;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+  }
+  .day-cell:hover { background: #e9edf1; }
+  .day-cell.otro-mes { background: #fafbfc; }
+
+  .block {
+    position: relative;
+    grid-row: auto;
+    border-radius: 4px;
+    padding: 3px 6px;
+    color: white;
+    font-size: 11px;
+    line-height: 1.25;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 34px;
+  }
+  .block b { display: block; font-size: 11.5px; }
+  .block .campo { opacity: 0.92; font-size: 10.5px; }
+  .block .ayudante { opacity: 0.85; font-size: 10px; font-style: italic; }
+
+  /* Modal */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 8px;
+    width: 420px;
+    max-width: 92vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .modal h2 { color: var(--azul); font-size: 16px; margin-top: 0; }
+  .modal label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-bottom: 3px;
+  }
+  .modal input, .modal select, .modal textarea {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid var(--gris-borde);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .modal textarea { resize: vertical; min-height: 50px; }
+  .modal .row2 { display: flex; gap: 10px; }
+  .modal .row2 > div { flex: 1; }
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    gap: 8px;
+  }
+  .modal-actions .left { display: flex; gap: 8px; }
+  .modal-actions button {
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .btn-guardar { background: var(--azul); color: white; }
+  .btn-cancelar { background: #e5e7eb; color: var(--texto); }
+  .btn-borrar { background: #EB5757; color: white; }
+
+  .status { font-size: 12px; color: #6b7280; padding: 8px 20px; }
+  .config-warning {
+    background: #fff3cd; border: 1px solid #ffe58f; color: #7a5b00;
+    padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Planificación de Sondistas · ICINCO</h1>
+  <div class="nav">
+    <button onclick="cambiarMes(-1)">‹ Mes anterior</button>
+    <span id="mesLabel">—</span>
+    <button onclick="cambiarMes(1)">Mes siguiente ›</button>
+  </div>
+  <button class="btn-add" onclick="abrirModal()">+ Nueva asignación</button>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div class="calendar-wrap">
+  <div id="configWarning"></div>
+  <div id="calendario"></div>
+  <div class="status" id="status">Cargando…</div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitulo">Nueva asignación</h2>
+    <input type="hidden" id="f_id">
+    <div class="row2">
+      <div>
+        <label>Obra</label>
+        <select id="f_obra"></select>
+      </div>
+      <div>
+        <label>Sondista</label>
+        <select id="f_sondista"></select>
+      </div>
+    </div>
+    <label>Trabajos de campo</label>
+    <textarea id="f_trabajos_campo" placeholder="Ej. 3 sondeos de 10 m"></textarea>
+    <label>Ayudante</label>
+    <select id="f_ayudante"></select>
+    <div class="row2">
+      <div>
+        <label>Fecha inicio</label>
+        <input type="date" id="f_fecha_inicio">
+      </div>
+      <div>
+        <label>Fecha fin</label>
+        <input type="date" id="f_fecha_fin">
+      </div>
+    </div>
+    <label>Observaciones</label>
+    <textarea id="f_observaciones"></textarea>
+
+    <div class="modal-actions">
+      <div class="left">
+        <button class="btn-guardar" onclick="guardarAsignacion()">Guardar</button>
+        <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+      </div>
+      <button class="btn-borrar" id="btnBorrar" style="display:none" onclick="borrarAsignacion()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ CONFIGURACIÓN ============ */
+// Pega aquí la URL de tu implementación de Apps Script (termina en /exec)
+// Es la MISMA URL que usa tu app de Partes de sondistas — este calendario
+// consume las acciones getPlanificacion / createAsignacion / updateAsignacion / deleteAsignacion
+// añadidas a ese mismo script (ver ANADIR_a_Code_existente.gs).
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfNGxUvOPMd2q6EVSFIPUa1FzFwBJnrlWrg_gf43QYU0CikURfFcHE-I8f-TWuMnoAKQ/exec";
+
+/* ============ ESTADO ============ */
+// Colores fijos por sondista (nunca cambian, según ICINCO)
+const COLORES_SONDISTA = {
+  'VICENTE':    '#185FA5',
+  'JUAN LUIS':  '#F2C94C',
+  'TOÑO':       '#27AE60',
+  'CARLOS':     '#EB5757'
+};
+const COLOR_DEFECTO = '#7f8c8d'; // por si aparece un sondista sin color asignado
+
+let sondistas = [];      // ['VICENTE', 'JUAN LUIS', ...] — vienen de tu hoja Sondistas (activos)
+let obras = [];          // ['438- 90 viviendas San Miguel', ...] — vienen de tu hoja Obras (activas)
+let ayudantes = [];       // ['JUAN', 'CARLOS', ...] — vienen de tu hoja Ayudantes (activos)
+let asignaciones = [];   // [{id, obra, trabajos_campo, sondista, ayudante, fecha_inicio, fecha_fin, observaciones}]
+let mesActual = new Date();
+mesActual.setDate(1);
+
+/* ============ CARGA DE DATOS ============ */
+async function cargarDatos() {
+  document.getElementById('status').textContent = 'Cargando…';
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    document.getElementById('configWarning').innerHTML =
+      '<div class="config-warning">⚠ Falta configurar APPS_SCRIPT_URL en el HTML. Mostrando datos de ejemplo.</div>';
+    sondistas = ['VICENTE', 'JUAN LUIS', 'TOÑO', 'CARLOS'];
+    obras = ['438- 90 viviendas San Miguel', '429- Cimentación muro la escalona'];
+    ayudantes = ['JUAN', 'CARLOS', 'YERAY', 'JOSE MANUEL'];
+    asignaciones = [];
+    renderTodo();
+    document.getElementById('status').textContent = 'Modo demo (sin conexión a Sheet).';
+    return;
+  }
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=getPlanificacion');
+    const data = await res.json();
+    sondistas = data.sondistas || [];
+    obras = data.obras || [];
+    ayudantes = data.ayudantes || [];
+    asignaciones = data.asignaciones || [];
+    renderTodo();
+    document.getElementById('status').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error cargando datos: ' + err.message;
+  }
+}
+
+async function guardarEnSheet(payload) {
+  document.getElementById('status').textContent = 'Guardando…';
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    await cargarDatos();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error guardando: ' + err.message;
+    alert('Error al guardar: ' + err.message);
+  }
+}
+
+/* ============ RENDER ============ */
+function renderTodo() {
+  renderLeyenda();
+  renderMesLabel();
+  renderCalendario();
+}
+
+function renderLeyenda() {
+  const el = document.getElementById('legend');
+  el.innerHTML = sondistas.map(s =>
+    `<div class="item"><span class="swatch" style="background:${colorDe(s)}"></span>${s}</div>`
+  ).join('');
+}
+
+function renderMesLabel() {
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('mesLabel').textContent =
+    meses[mesActual.getMonth()] + ' ' + mesActual.getFullYear();
+}
+
+function cambiarMes(delta) {
+  mesActual.setMonth(mesActual.getMonth() + delta);
+  renderTodo();
+}
+
+function toISO(d) {
+  return d.toISOString().slice(0,10);
+}
+
+// Devuelve array de semanas; cada semana es array de 7 fechas (lunes a domingo)
+function getSemanasDelMes(fecha) {
+  const year = fecha.getFullYear();
+  const month = fecha.getMonth();
+  const primerDia = new Date(year, month, 1);
+  const ultimoDia = new Date(year, month + 1, 0);
+
+  // Retrocede hasta el lunes de la semana del día 1
+  let inicio = new Date(primerDia);
+  const diaSemana = (inicio.getDay() + 6) % 7; // lunes=0
+  inicio.setDate(inicio.getDate() - diaSemana);
+
+  const semanas = [];
+  let cursor = new Date(inicio);
+  while (cursor <= ultimoDia) {
+    const semana = [];
+    for (let i = 0; i < 7; i++) {
+      semana.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    semanas.push(semana);
+  }
+  return semanas;
+}
+
+function colorDe(sondista) {
+  return COLORES_SONDISTA[(sondista || '').toUpperCase()] || COLOR_DEFECTO;
+}
+
+function renderCalendario() {
+  const cont = document.getElementById('calendario');
+  cont.innerHTML = '';
+  const semanas = getSemanasDelMes(mesActual);
+  const mesRef = mesActual.getMonth();
+  const diasLabel = ['L','M','X','J','V','S','D'];
+
+  semanas.forEach(semana => {
+    const weekBlock = document.createElement('div');
+    weekBlock.className = 'week-block';
+
+    // Cabecera de días
+    const header = document.createElement('div');
+    header.className = 'week-header';
+    header.appendChild(document.createElement('div')); // hueco columna label
+    semana.forEach((d, i) => {
+      const dh = document.createElement('div');
+      dh.className = 'day-head' + (d.getMonth() !== mesRef ? ' otro-mes' : '');
+      dh.innerHTML = diasLabel[i] + '<span class="num">' + d.getDate() + '</span>';
+      header.appendChild(dh);
+    });
+    weekBlock.appendChild(header);
+
+    // Filas por sondista
+    sondistas.forEach(nombreSondista => {
+      const row = document.createElement('div');
+      row.className = 'sondista-row';
+
+      const label = document.createElement('div');
+      label.className = 'sondista-label';
+      label.innerHTML = `<span class="dot" style="background:${colorDe(nombreSondista)}"></span>${nombreSondista}`;
+      row.appendChild(label);
+
+      // Para cada día de la semana, comprobamos si hay bloque activo
+      // Estrategia: recorremos día a día; si un bloque empieza aquí (o es el primer día de la semana
+      // y el bloque ya estaba activo), lo pintamos con su span correspondiente dentro de esta semana.
+      let i = 0;
+      while (i < 7) {
+        const fechaISO = toISO(semana[i]);
+        const asig = asignaciones.find(a =>
+          a.sondista === nombreSondista &&
+          a.fecha_inicio <= fechaISO && a.fecha_fin >= fechaISO
+        );
+
+        if (!asig) {
+          const cell = document.createElement('div');
+          cell.className = 'day-cell' + (semana[i].getMonth() !== mesRef ? ' otro-mes' : '');
+          cell.onclick = () => abrirModal(null, toISO(semana[i]));
+          row.appendChild(cell);
+          i++;
+          continue;
+        }
+
+        // Cuántos días consecutivos dentro de ESTA semana pertenecen al mismo bloque
+        let span = 0;
+        let j = i;
+        while (j < 7) {
+          const fISO = toISO(semana[j]);
+          if (fISO >= asig.fecha_inicio && fISO <= asig.fecha_fin) { span++; j++; }
+          else break;
+        }
+
+        const block = document.createElement('div');
+        block.className = 'block';
+        block.style.background = colorDe(asig.sondista);
+        block.style.gridColumn = `span ${span}`;
+        block.innerHTML = `<b>${asig.obra || ''}</b>` +
+          (asig.trabajos_campo ? `<span class="campo">${asig.trabajos_campo}</span>` : '') +
+          (asig.ayudante ? `<span class="ayudante">Ayte: ${asig.ayudante}</span>` : '');
+        block.onclick = () => abrirModal(asig);
+        row.appendChild(block);
+
+        i = j;
+      }
+
+      weekBlock.appendChild(row);
+    });
+
+    cont.appendChild(weekBlock);
+  });
+}
+
+// Devuelve la asignación existente del mismo sondista que se solapa en fechas, o null si no hay choque.
+// excluirId: al editar, no comparar el bloque contra sí mismo.
+function buscarSolape(sondista, fechaInicio, fechaFin, excluirId) {
+  return asignaciones.find(a =>
+    a.sondista === sondista &&
+    a.id !== excluirId &&
+    fechaInicio <= a.fecha_fin &&
+    fechaFin >= a.fecha_inicio
+  ) || null;
+}
+
+/* ============ MODAL ============ */
+function poblarSelects() {
+  document.getElementById('f_sondista').innerHTML =
+    sondistas.map(s => `<option value="${s}">${s}</option>`).join('');
+  document.getElementById('f_obra').innerHTML =
+    obras.map(o => `<option value="${o}">${o}</option>`).join('');
+  document.getElementById('f_ayudante').innerHTML =
+    '<option value="">—</option>' + ayudantes.map(a => `<option value="${a}">${a}</option>`).join('');
+}
+
+function abrirModal(asig, fechaPrellenada) {
+  poblarSelects();
+  document.getElementById('modalTitulo').textContent = asig ? 'Editar asignación' : 'Nueva asignación';
+  document.getElementById('f_id').value = asig ? asig.id : '';
+  document.getElementById('f_obra').value = asig ? asig.obra : (obras[0] || '');
+  document.getElementById('f_trabajos_campo').value = asig ? asig.trabajos_campo : '';
+  document.getElementById('f_sondista').value = asig ? asig.sondista : (sondistas[0] || '');
+  document.getElementById('f_ayudante').value = asig ? asig.ayudante : '';
+  document.getElementById('f_fecha_inicio').value = asig ? asig.fecha_inicio : (fechaPrellenada || '');
+  document.getElementById('f_fecha_fin').value = asig ? asig.fecha_fin : (fechaPrellenada || '');
+  document.getElementById('f_observaciones').value = asig ? asig.observaciones : '';
+  document.getElementById('btnBorrar').style.display = asig ? 'inline-block' : 'none';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function cerrarModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function guardarAsignacion() {
+  const id = document.getElementById('f_id').value;
+  const data = {
+    obra: document.getElementById('f_obra').value,
+    trabajos_campo: document.getElementById('f_trabajos_campo').value.trim(),
+    sondista: document.getElementById('f_sondista').value,
+    ayudante: document.getElementById('f_ayudante').value,
+    fecha_inicio: document.getElementById('f_fecha_inicio').value,
+    fecha_fin: document.getElementById('f_fecha_fin').value,
+    observaciones: document.getElementById('f_observaciones').value.trim()
+  };
+  if (!data.fecha_inicio || !data.fecha_fin) {
+    alert('Debes indicar fecha de inicio y fecha de fin.');
+    return;
+  }
+  if (data.fecha_fin < data.fecha_inicio) {
+    alert('La fecha fin no puede ser anterior a la fecha de inicio.');
+    return;
+  }
+
+  const choque = buscarSolape(data.sondista, data.fecha_inicio, data.fecha_fin, id);
+  if (choque) {
+    alert(
+      `No se puede guardar: ${data.sondista} ya tiene asignada la obra ${choque.obra} ` +
+      `entre ${choque.fecha_inicio} y ${choque.fecha_fin}.\n` +
+      `Corrige las fechas o edita esa asignación existente.`
+    );
+    return;
+  }
+
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    alert('Configura primero APPS_SCRIPT_URL para poder guardar datos reales.');
+    return;
+  }
+  if (id) {
+    guardarEnSheet({ action: 'updateAsignacion', id, data });
+  } else {
+    guardarEnSheet({ action: 'createAsignacion', data });
+  }
+  cerrarModal();
+}
+
+function borrarAsignacion() {
+  const id = document.getElementById('f_id').value;
+  if (!id) return;
+  if (!confirm('¿Eliminar esta asignación? Esta acción no se puede deshacer.')) return;
+  guardarEnSheet({ action: 'deleteAsignacion', id });
+  cerrarModal();
+}
+
+/* ============ INIT ============ */
+cargarDatos();
+</script>
+</body>
+</html>
