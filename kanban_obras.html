@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ICINCO · Kanban de Obras</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --azul: #185FA5;
+    --amarillo: #F2C94C;
+    --gris-borde: #d9dde3;
+    --gris-fondo: #f4f6f8;
+    --texto: #1f2937;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--gris-fondo);
+    margin: 0;
+    padding: 16px;
+    color: var(--texto);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--azul);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px 8px 0 0;
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .btn-add {
+    background: var(--amarillo);
+    color: var(--azul);
+    border: none;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .status { font-size: 12px; color: #6b7280; padding: 6px 20px; background: white; }
+  .config-warning {
+    background: #fff3cd; border: 1px solid #ffe58f; color: #7a5b00;
+    padding: 10px 14px; border-radius: 6px; font-size: 12px; margin: 10px 20px;
+  }
+
+  .board {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    background: white;
+    border: 1px solid var(--gris-borde);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    overflow-x: auto;
+    align-items: flex-start;
+  }
+  .col {
+    flex: 0 0 240px;
+    background: var(--gris-fondo);
+    border-radius: 8px;
+    padding: 8px;
+    min-height: 200px;
+  }
+  .col.drag-over { outline: 2px dashed var(--azul); outline-offset: -2px; }
+  .col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 6px 10px 6px;
+    font-weight: bold;
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .col-header .count {
+    background: rgba(0,0,0,0.08);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .col-add {
+    display: block;
+    width: 100%;
+    background: none;
+    border: 1px dashed #c7ccd3;
+    border-radius: 6px;
+    color: #6b7280;
+    font-size: 12px;
+    padding: 6px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .col-add:hover { background: #eceff2; }
+
+  .card {
+    background: white;
+    border: 1px solid var(--gris-borde);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: grab;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .card:active { cursor: grabbing; }
+  .card.dragging { opacity: 0.4; }
+  .card .codigo { font-weight: bold; font-size: 13px; color: var(--azul); }
+  .card .descripcion { font-size: 12.5px; margin-top: 2px; }
+  .card .campo { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  .card .prioridad {
+    display: inline-block;
+    background: var(--amarillo);
+    color: #7a5b00;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-top: 6px;
+  }
+  .card .fechas { font-size: 10.5px; color: #6b7280; margin-top: 6px; }
+  .card .responsable {
+    font-size: 10.5px;
+    color: var(--azul);
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  /* Colores identificativos por fase, en el borde izquierdo de cada tarjeta */
+  .card[data-fase="aceptada"]     { border-left: 4px solid #94A3B8; }
+  .card[data-fase="planificada"]  { border-left: 4px solid #60A5FA; }
+  .card[data-fase="ejecución"]    { border-left: 4px solid #F2C94C; }
+  .card[data-fase="almacén"]      { border-left: 4px solid #F59E0B; }
+  .card[data-fase="laboratorio"]  { border-left: 4px solid #34D399; }
+  .card[data-fase="gabinete"]     { border-left: 4px solid #A78BFA; }
+  .card[data-fase="revisión"]     { border-left: 4px solid #38BDF8; }
+  .card[data-fase="facturación"]  { border-left: 4px solid #FB7185; }
+  .card[data-fase="anclaje"]      { border-left: 4px solid #185FA5; }
+
+  /* Modal */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 8px;
+    width: 440px;
+    max-width: 92vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .modal h2 { color: var(--azul); font-size: 16px; margin-top: 0; }
+  .modal label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-bottom: 3px;
+  }
+  .modal input, .modal select, .modal textarea {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid var(--gris-borde);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .modal textarea { resize: vertical; min-height: 44px; }
+  .modal .row2 { display: flex; gap: 10px; }
+  .modal .row2 > div { flex: 1; }
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    gap: 8px;
+  }
+  .modal-actions .left { display: flex; gap: 8px; }
+  .modal-actions button {
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .btn-guardar { background: var(--azul); color: white; }
+  .btn-cancelar { background: #e5e7eb; color: var(--texto); }
+  .btn-borrar { background: #EB5757; color: white; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+  .checkbox-row input { width: auto; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Kanban de Obras · ICINCO</h1>
+  <button class="btn-add" onclick="abrirModal()">+ Nueva obra</button>
+</div>
+<div id="configWarning"></div>
+<div class="board" id="board"></div>
+<div class="status" id="status">Cargando…</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitulo">Nueva obra</h2>
+    <input type="hidden" id="f_codigo_original">
+    <div class="row2">
+      <div>
+        <label>Código</label>
+        <input type="text" id="f_codigo" placeholder="Ej. 1145">
+      </div>
+      <div>
+        <label>Fase</label>
+        <select id="f_fase"></select>
+      </div>
+    </div>
+    <label>Descripción</label>
+    <input type="text" id="f_descripcion" placeholder="Ej. E.G. Proyecto edificación residencial Taco">
+    <label>Trabajos de campo</label>
+    <input type="text" id="f_trabajos_campo" placeholder="Ej. 3S x 10 m">
+    <div class="checkbox-row">
+      <input type="checkbox" id="f_prioridad">
+      <label style="margin:0">Prioridad</label>
+    </div>
+    <div class="row2">
+      <div>
+        <label>Fecha inicio</label>
+        <input type="date" id="f_fecha_inicio">
+      </div>
+      <div>
+        <label>Fecha fin</label>
+        <input type="date" id="f_fecha_fin">
+      </div>
+    </div>
+    <label>Responsable</label>
+    <input type="text" id="f_responsable" placeholder="Ej. loreto_icinco">
+    <label>Comentarios</label>
+    <textarea id="f_comentarios"></textarea>
+
+    <div class="modal-actions">
+      <div class="left">
+        <button class="btn-guardar" onclick="guardarObra()">Guardar</button>
+        <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+      </div>
+      <button class="btn-borrar" id="btnBorrar" style="display:none" onclick="borrarObra()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ CONFIGURACIÓN ============ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfNGxUvOPMd2q6EVSFIPUa1FzFwBJnrlWrg_gf43QYU0CikURfFcHE-I8f-TWuMnoAKQ/exec";
+
+const NOMBRES_FASE = {
+  'aceptada':    'Aceptada',
+  'planificada': 'Planificada',
+  'ejecución':   'Ejecución',
+  'almacén':     'Almacén',
+  'laboratorio': 'Laboratorio',
+  'gabinete':    'Gabinete',
+  'revisión':    'Revisión',
+  'facturación': 'Facturación',
+  'anclaje':     'Anclaje'
+};
+
+/* ============ ESTADO ============ */
+let obras = [];
+let fases = ['aceptada','planificada','ejecución','almacén','laboratorio','gabinete','revisión','facturación','anclaje'];
+let draggedCodigo = null;
+
+/* ============ CARGA DE DATOS ============ */
+async function cargarDatos() {
+  document.getElementById('status').textContent = 'Cargando…';
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    document.getElementById('configWarning').innerHTML =
+      '<div class="config-warning">⚠ Falta configurar APPS_SCRIPT_URL. Mostrando datos de ejemplo.</div>';
+    obras = [
+      { codigo:'950', descripcion:'Piscina Los Silos', activa:'SI', fase:'laboratorio', trabajos_campo:'3S x 10 m', prioridad:'SI', fecha_inicio:'', fecha_fin:'', responsable:'loreto_icinco', comentarios:'' }
+    ];
+    render();
+    document.getElementById('status').textContent = 'Modo demo (sin conexión a Sheet).';
+    return;
+  }
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=getKanban');
+    const data = await res.json();
+    obras = data.obras || [];
+    if (data.fases && data.fases.length) fases = data.fases;
+    render();
+    document.getElementById('status').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error cargando datos: ' + err.message;
+  }
+}
+
+async function enviarAccion(payload) {
+  document.getElementById('status').textContent = 'Guardando…';
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    await cargarDatos();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error: ' + err.message;
+    alert('Error al guardar: ' + err.message);
+  }
+}
+
+/* ============ RENDER ============ */
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  // Fase "" (sin clasificar) solo se muestra si hay obras reales sin fase asignada
+  const sinClasificar = obras.filter(o => !o.fase);
+  const listaFases = sinClasificar.length ? [''].concat(fases) : fases;
+
+  listaFases.forEach(fase => {
+    const col = document.createElement('div');
+    col.className = 'col';
+    col.dataset.fase = fase;
+
+    const obrasFase = obras.filter(o => (o.fase || '') === fase);
+
+    const header = document.createElement('div');
+    header.className = 'col-header';
+    header.innerHTML = `<span>${fase ? NOMBRES_FASE[fase] || fase : 'Sin clasificar'}</span><span class="count">${obrasFase.length}</span>`;
+    col.appendChild(header);
+
+    obrasFase.forEach(o => col.appendChild(crearTarjeta(o)));
+
+    const btnAdd = document.createElement('button');
+    btnAdd.className = 'col-add';
+    btnAdd.textContent = '+ Añadir obra';
+    btnAdd.onclick = () => abrirModal(null, fase || 'aceptada');
+    col.appendChild(btnAdd);
+
+    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    col.addEventListener('drop', (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (draggedCodigo && fase) {
+        enviarAccion({ action: 'moverObraKanban', codigo: draggedCodigo, fase: fase });
+      }
+      draggedCodigo = null;
+    });
+
+    board.appendChild(col);
+  });
+}
+
+function crearTarjeta(o) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.draggable = true;
+  card.dataset.fase = o.fase || '';
+
+  let fechasHtml = '';
+  if (o.fecha_inicio || o.fecha_fin) {
+    fechasHtml = `<div class="fechas">📅 ${o.fecha_inicio || '?'} → ${o.fecha_fin || '?'}</div>`;
+  }
+
+  card.innerHTML = `
+    <div class="codigo">${o.codigo}</div>
+    <div class="descripcion">${o.descripcion || ''}</div>
+    ${o.trabajos_campo ? `<div class="campo">${o.trabajos_campo}</div>` : ''}
+    ${o.prioridad === 'SI' ? '<span class="prioridad">PRIORIDAD</span>' : ''}
+    ${fechasHtml}
+    ${o.responsable ? `<div class="responsable">👤 ${o.responsable}</div>` : ''}
+  `;
+
+  card.addEventListener('dragstart', () => {
+    draggedCodigo = o.codigo;
+    card.classList.add('dragging');
+  });
+  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  card.addEventListener('click', () => abrirModal(o));
+
+  return card;
+}
+
+/* ============ MODAL ============ */
+function poblarFases() {
+  document.getElementById('f_fase').innerHTML =
+    fases.map(f => `<option value="${f}">${NOMBRES_FASE[f] || f}</option>`).join('');
+}
+
+function abrirModal(obra, faseInicial) {
+  poblarFases();
+  const esNueva = !obra;
+  document.getElementById('modalTitulo').textContent = esNueva ? 'Nueva obra' : 'Editar obra';
+  document.getElementById('f_codigo_original').value = esNueva ? '' : obra.codigo;
+  document.getElementById('f_codigo').value = esNueva ? '' : obra.codigo;
+  document.getElementById('f_codigo').disabled = !esNueva; // el código no se cambia al editar
+  document.getElementById('f_fase').value = esNueva ? (faseInicial || 'aceptada') : (obra.fase || 'aceptada');
+  document.getElementById('f_descripcion').value = esNueva ? '' : (obra.descripcion || '');
+  document.getElementById('f_trabajos_campo').value = esNueva ? '' : (obra.trabajos_campo || '');
+  document.getElementById('f_prioridad').checked = !esNueva && obra.prioridad === 'SI';
+  document.getElementById('f_fecha_inicio').value = esNueva ? '' : (obra.fecha_inicio || '');
+  document.getElementById('f_fecha_fin').value = esNueva ? '' : (obra.fecha_fin || '');
+  document.getElementById('f_responsable').value = esNueva ? '' : (obra.responsable || '');
+  document.getElementById('f_comentarios').value = esNueva ? '' : (obra.comentarios || '');
+  document.getElementById('btnBorrar').style.display = esNueva ? 'none' : 'inline-block';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function cerrarModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function guardarObra() {
+  const codigoOriginal = document.getElementById('f_codigo_original').value;
+  const codigo = document.getElementById('f_codigo').value.trim();
+  if (!codigo) { alert('El código de obra es obligatorio.'); return; }
+
+  const data = {
+    codigo: codigo,
+    descripcion: document.getElementById('f_descripcion').value.trim(),
+    fase: document.getElementById('f_fase').value,
+    trabajos_campo: document.getElementById('f_trabajos_campo').value.trim(),
+    prioridad: document.getElementById('f_prioridad').checked ? 'SI' : 'NO',
+    fecha_inicio: document.getElementById('f_fecha_inicio').value,
+    fecha_fin: document.getElementById('f_fecha_fin').value,
+    responsable: document.getElementById('f_responsable').value.trim(),
+    comentarios: document.getElementById('f_comentarios').value.trim()
+  };
+
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    alert('Configura primero APPS_SCRIPT_URL para poder guardar datos reales.');
+    return;
+  }
+
+  if (codigoOriginal) {
+    enviarAccion({ action: 'editarObraKanban', codigo: codigoOriginal, data });
+  } else {
+    enviarAccion({ action: 'crearObraKanban', data });
+  }
+  cerrarModal();
+}
+
+function borrarObra() {
+  const codigo = document.getElementById('f_codigo_original').value;
+  if (!codigo) return;
+  if (!confirm(`¿Eliminar la obra ${codigo}? Esta acción no se puede deshacer.`)) return;
+  enviarAccion({ action: 'eliminarObraKanban', codigo });
+  cerrarModal();
+}
+
+/* ============ INIT ============ */
+cargarDatos();
+</script>
+</body>
+</html>
