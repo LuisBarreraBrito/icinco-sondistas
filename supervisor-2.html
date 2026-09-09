@@ -124,6 +124,7 @@
   #tab-fichas iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
   #tab-planificacion iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
   #tab-kanban iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
+  #tab-rendimiento iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
 
 </style>
 </head>
@@ -162,6 +163,7 @@
     <button class="nav-tab" onclick="switchTab('fichas',this)">📄 Fichas de Prospección</button>
     <button class="nav-tab" onclick="switchTab('planificacion',this)">🗓️ Planificación Sondistas</button>
     <button class="nav-tab" onclick="switchTab('kanban',this)">📌 Kanban de Obras</button>
+    <button class="nav-tab" onclick="switchTab('rendimiento',this)">📈 Rendimiento e Incentivos</button>
   </div>
 
   <!-- Partes -->
@@ -253,6 +255,11 @@
   <!-- Kanban de obras: iframe al tablero independiente -->
   <div id="tab-kanban" class="tab-panel">
     <iframe id="kanban-iframe" src="" title="Kanban de Obras"></iframe>
+  </div>
+
+  <!-- Rendimiento e incentivos: iframe independiente -->
+  <div id="tab-rendimiento" class="tab-panel">
+    <iframe id="rendimiento-iframe" src="" title="Rendimiento e Incentivos"></iframe>
   </div>
 
 <!-- Modal editar -->
@@ -702,6 +709,13 @@ function switchTab(tab, btn) {
     const ifr = document.getElementById('kanban-iframe');
     if (!ifr.src || ifr.src === window.location.href) {
       ifr.src = 'kanban_obras.html?v=' + Date.now();
+    }
+  }
+  // Cargar iframe de rendimiento la primera vez
+  if (tab === 'rendimiento') {
+    const ifr = document.getElementById('rendimiento-iframe');
+    if (!ifr.src || ifr.src === window.location.href) {
+      ifr.src = 'rendimiento_incentivos.html?v=' + Date.now();
     }
   }
 }

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ICINCO · Rendimiento e Incentivos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --azul: #185FA5;
+    --amarillo: #F2C94C;
+    --gris-borde: #d9dde3;
+    --gris-fondo: #f4f6f8;
+    --texto: #1f2937;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--gris-fondo);
+    margin: 0;
+    padding: 16px;
+    color: var(--texto);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--azul);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px 8px 0 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .nav { display: flex; align-items: center; gap: 12px; }
+  .nav button {
+    background: var(--amarillo);
+    color: var(--azul);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .nav span { font-weight: 600; min-width: 150px; text-align: center; }
+
+  .wrap {
+    background: white;
+    border: 1px solid var(--gris-borde);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 16px;
+  }
+  .status { font-size: 12px; color: #6b7280; padding: 4px 4px 14px 4px; }
+  .config-warning {
+    background: #fff3cd; border: 1px solid #ffe58f; color: #7a5b00;
+    padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px;
+  }
+
+  h2.seccion {
+    font-size: 14px;
+    color: var(--azul);
+    margin: 22px 0 8px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #eaf1fa;
+  }
+  .tabla-scroll { overflow-x: auto; }
+  table.rendimiento {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12.5px;
+    min-width: 600px;
+  }
+  table.rendimiento th, table.rendimiento td {
+    border: 1px solid var(--gris-borde);
+    padding: 6px 8px;
+    text-align: center;
+  }
+  table.rendimiento th {
+    background: #eaf1fa;
+    color: var(--azul);
+    font-size: 11px;
+  }
+  table.rendimiento td.nombre {
+    text-align: left;
+    font-weight: bold;
+    background: var(--gris-fondo);
+    white-space: nowrap;
+  }
+  table.rendimiento td.total {
+    font-weight: bold;
+    background: #fff8e1;
+  }
+  table.rendimiento th.total-header { background: var(--amarillo); color: var(--azul); }
+  table.rendimiento tfoot td {
+    font-weight: bold;
+    background: #f0f1f3;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Rendimiento e Incentivos · ICINCO</h1>
+  <div class="nav">
+    <button onclick="cambiarMes(-1)">‹ Mes anterior</button>
+    <span id="mesLabel">—</span>
+    <button onclick="cambiarMes(1)">Mes siguiente ›</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="configWarning"></div>
+  <div class="status" id="status">Cargando…</div>
+
+  <h2 class="seccion">Metros por semana — Sondistas</h2>
+  <div class="tabla-scroll"><table class="rendimiento" id="tablaSondistas"></table></div>
+
+  <h2 class="seccion">Metros por semana — Ayudantes</h2>
+  <div class="tabla-scroll"><table class="rendimiento" id="tablaAyudantes"></table></div>
+</div>
+
+<script>
+/* ============ CONFIGURACIÓN ============ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfNGxUvOPMd2q6EVSFIPUa1FzFwBJnrlWrg_gf43QYU0CikURfFcHE-I8f-TWuMnoAKQ/exec";
+
+/* ============ ESTADO ============ */
+let partes = [];      // [{fecha, sondista, ayudante, obra, metros, tipo}]
+let sondistas = [];
+let ayudantes = [];
+let mesActual = new Date();
+mesActual.setDate(1);
+
+/* ============ CARGA DE DATOS ============ */
+async function cargarDatos() {
+  document.getElementById('status').textContent = 'Cargando…';
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    document.getElementById('configWarning').innerHTML =
+      '<div class="config-warning">⚠ Falta configurar APPS_SCRIPT_URL. Mostrando datos de ejemplo.</div>';
+    sondistas = ['VICENTE', 'JUAN LUIS', 'TOÑO', 'CARLOS'];
+    ayudantes = ['ABRAHAM', 'KEVIN', 'YERAY', 'JESUS'];
+    partes = [];
+    render();
+    document.getElementById('status').textContent = 'Modo demo (sin conexión a Sheet).';
+    return;
+  }
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=getRendimiento');
+    const data = await res.json();
+    partes = data.partes || [];
+    sondistas = data.sondistas || [];
+    ayudantes = data.ayudantes || [];
+    render();
+    document.getElementById('status').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error cargando datos: ' + err.message;
+  }
+}
+
+/* ============ FECHAS / SEMANAS ============ */
+function renderMesLabel() {
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('mesLabel').textContent =
+    meses[mesActual.getMonth()] + ' ' + mesActual.getFullYear();
+}
+
+function cambiarMes(delta) {
+  mesActual.setMonth(mesActual.getMonth() + delta);
+  render();
+}
+
+function toISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Semanas (lunes-domingo) que tocan el mes seleccionado
+function getSemanasDelMes(fecha) {
+  const year = fecha.getFullYear();
+  const month = fecha.getMonth();
+  const primerDia = new Date(year, month, 1);
+  const ultimoDia = new Date(year, month + 1, 0);
+
+  let inicio = new Date(primerDia);
+  const diaSemana = (inicio.getDay() + 6) % 7; // lunes=0
+  inicio.setDate(inicio.getDate() - diaSemana);
+
+  const semanas = [];
+  let cursor = new Date(inicio);
+  while (cursor <= ultimoDia) {
+    const semana = [];
+    for (let i = 0; i < 7; i++) {
+      semana.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    semanas.push(semana);
+  }
+  return semanas;
+}
+
+function etiquetaSemana(semana) {
+  const ini = semana[0], fin = semana[6];
+  const f = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  return `${f(ini)}–${f(fin)}`;
+}
+
+/* ============ AGREGACIÓN ============ */
+// Suma metros de 'partes' para una persona (sondista o ayudante) dentro de un rango de fechas ISO inclusive
+function sumaMetros(campo, nombre, fechaIniISO, fechaFinISO) {
+  return partes
+    .filter(p => p[campo] === nombre && p.fecha >= fechaIniISO && p.fecha <= fechaFinISO)
+    .reduce((acc, p) => acc + (Number(p.metros) || 0), 0);
+}
+
+/* ============ RENDER ============ */
+function render() {
+  renderMesLabel();
+  const semanas = getSemanasDelMes(mesActual);
+
+  // Total del mes en sentido estricto (por mes/año calendario, no por semanas completas)
+  const y = mesActual.getFullYear();
+  const m = mesActual.getMonth();
+  const primerDiaISO = toISO(new Date(y, m, 1));
+  const ultimoDiaISO = toISO(new Date(y, m + 1, 0));
+
+  renderTabla('tablaSondistas', 'sondista', sondistas, semanas, primerDiaISO, ultimoDiaISO);
+  renderTabla('tablaAyudantes', 'ayudante', ayudantes, semanas, primerDiaISO, ultimoDiaISO);
+}
+
+function renderTabla(tablaId, campo, personas, semanas, primerDiaISO, ultimoDiaISO) {
+  const tabla = document.getElementById(tablaId);
+  tabla.innerHTML = '';
+
+  const thead = document.createElement('thead');
+  const trHead = document.createElement('tr');
+  trHead.innerHTML = '<th>Nombre</th>' +
+    semanas.map(s => `<th>${etiquetaSemana(s)}</th>`).join('') +
+    '<th class="total-header">Total mes</th>';
+  thead.appendChild(trHead);
+  tabla.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const totalesSemana = semanas.map(() => 0);
+  let totalGeneral = 0;
+
+  personas.forEach(persona => {
+    const tr = document.createElement('tr');
+    let fila = `<td class="nombre">${persona}</td>`;
+
+    semanas.forEach((semana, idx) => {
+      const ini = toISO(semana[0]);
+      const fin = toISO(semana[6]);
+      const metros = sumaMetros(campo, persona, ini, fin);
+      totalesSemana[idx] += metros;
+      fila += `<td>${metros ? metros.toFixed(1) : '—'}</td>`;
+    });
+
+    const totalMes = sumaMetros(campo, persona, primerDiaISO, ultimoDiaISO);
+    totalGeneral += totalMes;
+    fila += `<td class="total">${totalMes ? totalMes.toFixed(1) : '—'}</td>`;
+
+    tr.innerHTML = fila;
+    tbody.appendChild(tr);
+  });
+
+  tabla.appendChild(tbody);
+
+  const tfoot = document.createElement('tfoot');
+  const trFoot = document.createElement('tr');
+  trFoot.innerHTML = '<td>Total semana</td>' +
+    totalesSemana.map(t => `<td>${t ? t.toFixed(1) : '—'}</td>`).join('') +
+    `<td>${totalGeneral ? totalGeneral.toFixed(1) : '—'}</td>`;
+  tfoot.appendChild(trFoot);
+  tabla.appendChild(tfoot);
+}
+
+/* ============ INIT ============ */
+cargarDatos();
+</script>
+</body>
+</html>

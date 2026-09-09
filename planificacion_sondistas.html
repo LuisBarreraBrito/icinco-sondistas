@@ -181,6 +181,7 @@
   .modal textarea { resize: vertical; min-height: 50px; }
   .modal .row2 { display: flex; gap: 10px; }
   .modal .row2 > div { flex: 1; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; }
   .modal-actions {
     display: flex;
     justify-content: space-between;
@@ -256,6 +257,31 @@
         <input type="date" id="f_fecha_fin">
       </div>
     </div>
+    <div class="row2">
+      <div>
+        <label>Isla</label>
+        <select id="f_isla"></select>
+      </div>
+      <div>
+        <label>Máquina</label>
+        <input type="text" id="f_maquina" placeholder="Ej. Sonda 1">
+      </div>
+    </div>
+    <label>
+      Metros realizados
+      <span id="metrosAutoLabel" style="font-weight:normal;color:#6b7280;"></span>
+    </label>
+    <input type="number" id="f_metros_manual" placeholder="Se calcula solo desde los partes; escribe aquí para corregirlo" step="0.1">
+    <div class="row2">
+      <div class="checkbox-row" style="margin-top:16px;">
+        <input type="checkbox" id="f_facturado" style="width:auto;">
+        <label style="margin:0">Facturado</label>
+      </div>
+      <div>
+        <label>Mes de facturación</label>
+        <input type="month" id="f_mes_facturacion">
+      </div>
+    </div>
     <label>Observaciones</label>
     <textarea id="f_observaciones"></textarea>
 
@@ -290,7 +316,8 @@ const COLOR_DEFECTO = '#7f8c8d'; // por si aparece un sondista sin color asignad
 let sondistas = [];      // ['VICENTE', 'JUAN LUIS', ...] — vienen de tu hoja Sondistas (activos)
 let obras = [];          // ['438- 90 viviendas San Miguel', ...] — vienen de tu hoja Obras (activas)
 let ayudantes = [];       // ['JUAN', 'CARLOS', ...] — vienen de tu hoja Ayudantes (activos)
-let asignaciones = [];   // [{id, obra, trabajos_campo, sondista, ayudante, fecha_inicio, fecha_fin, observaciones}]
+let islas = ['Tenerife','Gran Canaria','La Palma','La Gomera','El Hierro','Fuerteventura','Lanzarote'];
+let asignaciones = [];   // [{id, obra, trabajos_campo, sondista, ayudante, fecha_inicio, fecha_fin, observaciones, isla, maquina, metros_manual, metros_auto, facturado, mes_facturacion}]
 let mesActual = new Date();
 mesActual.setDate(1);
 
@@ -314,6 +341,7 @@ async function cargarDatos() {
     sondistas = data.sondistas || [];
     obras = data.obras || [];
     ayudantes = data.ayudantes || [];
+    islas = data.islas && data.islas.length ? data.islas : islas;
     asignaciones = data.asignaciones || [];
     renderTodo();
     document.getElementById('status').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
@@ -467,7 +495,7 @@ function renderCalendario() {
         block.className = 'block';
         block.style.background = colorDe(asig.sondista);
         block.style.gridColumn = `span ${span}`;
-        block.innerHTML = `<b>${asig.obra || ''}</b>` +
+        block.innerHTML = `<b>${asig.facturado === 'SI' ? '✓ ' : ''}${asig.obra || ''}</b>` +
           (asig.trabajos_campo ? `<span class="campo">${asig.trabajos_campo}</span>` : '') +
           (asig.ayudante ? `<span class="ayudante">Ayte: ${asig.ayudante}</span>` : '');
         block.onclick = () => abrirModal(asig);
@@ -502,6 +530,8 @@ function poblarSelects() {
     obras.map(o => `<option value="${o}">${o}</option>`).join('');
   document.getElementById('f_ayudante').innerHTML =
     '<option value="">—</option>' + ayudantes.map(a => `<option value="${a}">${a}</option>`).join('');
+  document.getElementById('f_isla').innerHTML =
+    '<option value="">—</option>' + islas.map(i => `<option value="${i}">${i}</option>`).join('');
 }
 
 function abrirModal(asig, fechaPrellenada) {
@@ -514,6 +544,14 @@ function abrirModal(asig, fechaPrellenada) {
   document.getElementById('f_ayudante').value = asig ? (asig.ayudante || '') : '';
   document.getElementById('f_fecha_inicio').value = asig ? (asig.fecha_inicio || '') : (fechaPrellenada || '');
   document.getElementById('f_fecha_fin').value = asig ? (asig.fecha_fin || '') : (fechaPrellenada || '');
+  document.getElementById('f_isla').value = asig ? (asig.isla || '') : '';
+  document.getElementById('f_maquina').value = asig ? (asig.maquina || '') : '';
+  document.getElementById('f_metros_manual').value = asig && asig.metros_manual ? asig.metros_manual : '';
+  const metrosAuto = asig ? (asig.metros_auto || 0) : 0;
+  document.getElementById('metrosAutoLabel').textContent =
+    asig ? `(calculado desde partes: ${metrosAuto} m)` : '';
+  document.getElementById('f_facturado').checked = asig ? asig.facturado === 'SI' : false;
+  document.getElementById('f_mes_facturacion').value = asig ? (asig.mes_facturacion || '') : '';
   document.getElementById('f_observaciones').value = asig ? (asig.observaciones || '') : '';
   document.getElementById('btnBorrar').style.display = asig ? 'inline-block' : 'none';
   document.getElementById('overlay').classList.add('open');
@@ -532,6 +570,11 @@ function guardarAsignacion() {
     ayudante: document.getElementById('f_ayudante').value,
     fecha_inicio: document.getElementById('f_fecha_inicio').value,
     fecha_fin: document.getElementById('f_fecha_fin').value,
+    isla: document.getElementById('f_isla').value,
+    maquina: document.getElementById('f_maquina').value.trim(),
+    metros_manual: document.getElementById('f_metros_manual').value,
+    facturado: document.getElementById('f_facturado').checked ? 'SI' : 'NO',
+    mes_facturacion: document.getElementById('f_mes_facturacion').value,
     observaciones: document.getElementById('f_observaciones').value.trim()
   };
   if (!data.fecha_inicio || !data.fecha_fin) {
