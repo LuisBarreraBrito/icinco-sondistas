@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ICINCO · Facturación</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --azul: #185FA5;
+    --amarillo: #F2C94C;
+    --gris-borde: #d9dde3;
+    --gris-fondo: #f4f6f8;
+    --texto: #1f2937;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--gris-fondo);
+    margin: 0;
+    padding: 16px;
+    color: var(--texto);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--azul);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px 8px 0 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .empresas { display: flex; gap: 4px; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 3px; }
+  .empresas button {
+    background: none; border: none; color: white; padding: 6px 14px;
+    border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .empresas button.activa { background: var(--amarillo); color: var(--azul); }
+  .acciones { display: flex; gap: 8px; }
+  .btn {
+    border: none; border-radius: 4px; padding: 7px 14px; font-weight: bold;
+    cursor: pointer; font-size: 13px;
+  }
+  .btn-add { background: var(--amarillo); color: var(--azul); }
+  .btn-export { background: white; color: var(--azul); }
+
+  .status { font-size: 12px; color: #6b7280; padding: 6px 4px 14px 4px; }
+  .config-warning {
+    background: #fff3cd; border: 1px solid #ffe58f; color: #7a5b00;
+    padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px;
+  }
+
+  .wrap {
+    background: white;
+    border: 1px solid var(--gris-borde);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 16px;
+  }
+
+  .tabla-scroll { overflow-x: auto; }
+  table.fact {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+    min-width: 1100px;
+  }
+  table.fact th, table.fact td {
+    border: 1px solid var(--gris-borde);
+    padding: 5px 7px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  table.fact th {
+    background: #eaf1fa;
+    color: var(--azul);
+    position: sticky; top: 0;
+  }
+  table.fact tr.mes-header td {
+    background: var(--azul);
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 11.5px;
+  }
+  table.fact tr.mes-total td {
+    background: #fff8e1;
+    font-weight: bold;
+  }
+  table.fact tr.fila-dato:hover { background: #f5f8fb; cursor: pointer; }
+  table.fact td.num { text-align: right; }
+
+  /* Modal */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 8px;
+    width: 480px;
+    max-width: 92vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .modal h2 { color: var(--azul); font-size: 16px; margin-top: 0; }
+  .modal label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-bottom: 3px;
+  }
+  .modal input, .modal select {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid var(--gris-borde);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .modal .row2 { display: flex; gap: 10px; }
+  .modal .row3 { display: flex; gap: 10px; }
+  .modal .row2 > div, .modal .row3 > div { flex: 1; }
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    gap: 8px;
+  }
+  .modal-actions .left { display: flex; gap: 8px; }
+  .modal-actions button {
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .btn-guardar { background: var(--azul); color: white; }
+  .btn-cancelar { background: #e5e7eb; color: var(--texto); }
+  .btn-borrar { background: #EB5757; color: white; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Facturación · ICINCO</h1>
+  <div class="empresas">
+    <button id="btnObras" class="activa" onclick="cambiarEmpresa('obras')">ICINCO Obras</button>
+    <button id="btnLaboratorio" onclick="cambiarEmpresa('laboratorio')">ICINCO Laboratorio</button>
+  </div>
+  <div class="acciones">
+    <button class="btn btn-add" onclick="abrirModal()">+ Nuevo registro</button>
+    <button class="btn btn-export" onclick="exportarExcel()">⬇ Exportar a Excel</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="configWarning"></div>
+  <div class="status" id="status">Cargando…</div>
+  <div class="tabla-scroll">
+    <table class="fact" id="tablaFacturacion"></table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitulo">Nuevo registro</h2>
+    <input type="hidden" id="f_id">
+    <div class="row3">
+      <div>
+        <label>Nº Obra</label>
+        <input type="text" id="f_numero_obra">
+      </div>
+      <div>
+        <label>Isla</label>
+        <select id="f_isla"></select>
+      </div>
+    </div>
+    <label>Nombre</label>
+    <input type="text" id="f_nombre">
+    <label>Cliente</label>
+    <input type="text" id="f_cliente">
+    <div class="row3">
+      <div>
+        <label>F. Aceptación</label>
+        <input type="date" id="f_fecha_aceptacion">
+      </div>
+      <div>
+        <label>F. Inicio</label>
+        <input type="date" id="f_fecha_inicio">
+      </div>
+      <div>
+        <label>F. Fin</label>
+        <input type="date" id="f_fecha_fin">
+      </div>
+    </div>
+    <div class="row2">
+      <div>
+        <label>Nº Fac. Geotecnia</label>
+        <input type="text" id="f_numero_fac_geotecnia">
+      </div>
+      <div>
+        <label>F. Factura</label>
+        <input type="date" id="f_fecha_factura">
+      </div>
+    </div>
+    <div class="row3">
+      <div>
+        <label>Nº Factura</label>
+        <input type="text" id="f_numero_factura">
+      </div>
+      <div>
+        <label>Euros</label>
+        <input type="number" step="0.01" id="f_euros" onchange="autocalcularIGIC()">
+      </div>
+      <div>
+        <label>Euros con IGIC</label>
+        <input type="number" step="0.01" id="f_euros_igic">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <div class="left">
+        <button class="btn-guardar" onclick="guardarRegistro()">Guardar</button>
+        <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+      </div>
+      <button class="btn-borrar" id="btnBorrar" style="display:none" onclick="borrarRegistro()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ CONFIGURACIÓN ============ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfNGxUvOPMd2q6EVSFIPUa1FzFwBJnrlWrg_gf43QYU0CikURfFcHE-I8f-TWuMnoAKQ/exec";
+const IGIC = 0.07; // Canarias, tipo general — ajustable si algún registro lleva otro tipo
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+/* ============ ESTADO ============ */
+let empresaActual = 'obras';
+let registros = [];
+let islas = ['Tenerife','Gran Canaria','La Palma','La Gomera','El Hierro','Fuerteventura','Lanzarote'];
+
+/* ============ CARGA DE DATOS ============ */
+async function cargarDatos() {
+  document.getElementById('status').textContent = 'Cargando…';
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    document.getElementById('configWarning').innerHTML =
+      '<div class="config-warning">⚠ Falta configurar APPS_SCRIPT_URL. Mostrando datos de ejemplo.</div>';
+    registros = [];
+    render();
+    document.getElementById('status').textContent = 'Modo demo (sin conexión a Sheet).';
+    return;
+  }
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=getFacturacion&empresa=' + empresaActual);
+    const data = await res.json();
+    registros = data.registros || [];
+    if (data.islas && data.islas.length) islas = data.islas;
+    render();
+    document.getElementById('status').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error cargando datos: ' + err.message;
+  }
+}
+
+async function enviarAccion(payload) {
+  document.getElementById('status').textContent = 'Guardando…';
+  try {
+    payload.empresa = empresaActual;
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    await cargarDatos();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Error: ' + err.message;
+    alert('Error al guardar: ' + err.message);
+  }
+}
+
+function cambiarEmpresa(empresa) {
+  empresaActual = empresa;
+  document.getElementById('btnObras').classList.toggle('activa', empresa === 'obras');
+  document.getElementById('btnLaboratorio').classList.toggle('activa', empresa === 'laboratorio');
+  cargarDatos();
+}
+
+/* ============ RENDER (agrupado por mes de F.Factura) ============ */
+function mesDeFecha(fechaISO) {
+  if (!fechaISO) return null;
+  const partes = fechaISO.split('-');
+  return { anio: partes[0], mesIdx: parseInt(partes[1], 10) - 1 };
+}
+
+function render() {
+  const tabla = document.getElementById('tablaFacturacion');
+  tabla.innerHTML = '';
+
+  const cabecera = `<tr>
+    <th>Nº Obra</th><th>Isla</th><th>Nombre</th><th>Cliente</th>
+    <th>F.Aceptación</th><th>F.Inicio</th><th>F.Fin</th>
+    <th>Nº Fac Geot.</th><th>F.Factura</th><th>Nº Factura</th>
+    <th>Euros</th><th>Euros IGIC</th>
+  </tr>`;
+  tabla.innerHTML = cabecera;
+
+  // Agrupar por año-mes de fecha_factura; sin fecha_factura → grupo "Sin facturar"
+  const grupos = {};
+  registros.forEach(r => {
+    const m = mesDeFecha(r.fecha_factura);
+    const clave = m ? `${m.anio}-${String(m.mesIdx).padStart(2,'0')}` : 'SIN_FACTURAR';
+    if (!grupos[clave]) grupos[clave] = [];
+    grupos[clave].push(r);
+  });
+
+  const claves = Object.keys(grupos).sort();
+  // Mover "SIN_FACTURAR" al principio si existe
+  const idxSin = claves.indexOf('SIN_FACTURAR');
+  if (idxSin > -1) { claves.splice(idxSin, 1); claves.unshift('SIN_FACTURAR'); }
+
+  let totalGeneralEuros = 0, totalGeneralIgic = 0;
+
+  claves.forEach(clave => {
+    const filas = grupos[clave];
+    const etiqueta = clave === 'SIN_FACTURAR'
+      ? 'SIN FACTURAR TODAVÍA'
+      : `${MESES[parseInt(clave.split('-')[1],10)]} ${clave.split('-')[0]}`;
+
+    const trMes = document.createElement('tr');
+    trMes.className = 'mes-header';
+    trMes.innerHTML = `<td colspan="12">${etiqueta}</td>`;
+    tabla.appendChild(trMes);
+
+    let totalEuros = 0, totalIgic = 0;
+    filas.forEach(r => {
+      totalEuros += Number(r.euros) || 0;
+      totalIgic += Number(r.euros_igic) || 0;
+      const tr = document.createElement('tr');
+      tr.className = 'fila-dato';
+      tr.innerHTML = `
+        <td>${r.numero_obra}</td><td>${r.isla}</td><td>${r.nombre}</td><td>${r.cliente}</td>
+        <td>${r.fecha_aceptacion}</td><td>${r.fecha_inicio}</td><td>${r.fecha_fin}</td>
+        <td>${r.numero_fac_geotecnia}</td><td>${r.fecha_factura}</td><td>${r.numero_factura}</td>
+        <td class="num">${r.euros ? Number(r.euros).toFixed(2) : ''}</td>
+        <td class="num">${r.euros_igic ? Number(r.euros_igic).toFixed(2) : ''}</td>
+      `;
+      tr.onclick = () => abrirModal(r);
+      tabla.appendChild(tr);
+    });
+
+    const trTotal = document.createElement('tr');
+    trTotal.className = 'mes-total';
+    trTotal.innerHTML = `<td colspan="10">TOTAL ${etiqueta}</td>
+      <td class="num">${totalEuros.toFixed(2)}</td><td class="num">${totalIgic.toFixed(2)}</td>`;
+    tabla.appendChild(trTotal);
+
+    totalGeneralEuros += totalEuros;
+    totalGeneralIgic += totalIgic;
+  });
+
+  const trGranTotal = document.createElement('tr');
+  trGranTotal.className = 'mes-header';
+  trGranTotal.innerHTML = `<td colspan="10">TOTAL ${empresaActual === 'obras' ? 'ICINCO OBRAS' : 'ICINCO LABORATORIO'}</td>
+    <td class="num">${totalGeneralEuros.toFixed(2)}</td><td class="num">${totalGeneralIgic.toFixed(2)}</td>`;
+  tabla.appendChild(trGranTotal);
+}
+
+/* ============ MODAL ============ */
+function poblarIslas() {
+  document.getElementById('f_isla').innerHTML =
+    '<option value="">—</option>' + islas.map(i => `<option value="${i}">${i}</option>`).join('');
+}
+
+function autocalcularIGIC() {
+  const euros = parseFloat(document.getElementById('f_euros').value);
+  if (!isNaN(euros) && !document.getElementById('f_euros_igic').value) {
+    document.getElementById('f_euros_igic').value = (euros * (1 + IGIC)).toFixed(2);
+  }
+}
+
+function abrirModal(r) {
+  poblarIslas();
+  const esNuevo = !r;
+  document.getElementById('modalTitulo').textContent = esNuevo ? 'Nuevo registro' : 'Editar registro';
+  document.getElementById('f_id').value = esNuevo ? '' : r.id;
+  document.getElementById('f_numero_obra').value = esNuevo ? '' : (r.numero_obra || '');
+  document.getElementById('f_isla').value = esNuevo ? '' : (r.isla || '');
+  document.getElementById('f_nombre').value = esNuevo ? '' : (r.nombre || '');
+  document.getElementById('f_cliente').value = esNuevo ? '' : (r.cliente || '');
+  document.getElementById('f_fecha_aceptacion').value = esNuevo ? '' : (r.fecha_aceptacion || '');
+  document.getElementById('f_fecha_inicio').value = esNuevo ? '' : (r.fecha_inicio || '');
+  document.getElementById('f_fecha_fin').value = esNuevo ? '' : (r.fecha_fin || '');
+  document.getElementById('f_numero_fac_geotecnia').value = esNuevo ? '' : (r.numero_fac_geotecnia || '');
+  document.getElementById('f_fecha_factura').value = esNuevo ? '' : (r.fecha_factura || '');
+  document.getElementById('f_numero_factura').value = esNuevo ? '' : (r.numero_factura || '');
+  document.getElementById('f_euros').value = esNuevo ? '' : (r.euros || '');
+  document.getElementById('f_euros_igic').value = esNuevo ? '' : (r.euros_igic || '');
+  document.getElementById('btnBorrar').style.display = esNuevo ? 'none' : 'inline-block';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function cerrarModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function guardarRegistro() {
+  const id = document.getElementById('f_id').value;
+  const data = {
+    numero_obra: document.getElementById('f_numero_obra').value.trim(),
+    isla: document.getElementById('f_isla').value,
+    nombre: document.getElementById('f_nombre').value.trim(),
+    cliente: document.getElementById('f_cliente').value.trim(),
+    fecha_aceptacion: document.getElementById('f_fecha_aceptacion').value,
+    fecha_inicio: document.getElementById('f_fecha_inicio').value,
+    fecha_fin: document.getElementById('f_fecha_fin').value,
+    numero_fac_geotecnia: document.getElementById('f_numero_fac_geotecnia').value.trim(),
+    fecha_factura: document.getElementById('f_fecha_factura').value,
+    numero_factura: document.getElementById('f_numero_factura').value.trim(),
+    euros: document.getElementById('f_euros').value,
+    euros_igic: document.getElementById('f_euros_igic').value
+  };
+  if (!data.numero_obra) { alert('El Nº de obra es obligatorio.'); return; }
+  if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
+    alert('Configura primero APPS_SCRIPT_URL para poder guardar datos reales.');
+    return;
+  }
+  if (id) {
+    enviarAccion({ action: 'editarFacturacion', id, data });
+  } else {
+    enviarAccion({ action: 'crearFacturacion', data });
+  }
+  cerrarModal();
+}
+
+function borrarRegistro() {
+  const id = document.getElementById('f_id').value;
+  if (!id) return;
+  if (!confirm('¿Eliminar este registro de facturación? Esta acción no se puede deshacer.')) return;
+  enviarAccion({ action: 'eliminarFacturacion', id });
+  cerrarModal();
+}
+
+/* ============ EXPORTAR A EXCEL ============ */
+function exportarExcel() {
+  const cabecera = ['Nº Obra','Isla','Nombre','Cliente','F.Aceptación','F.Inicio','F.Fin',
+    'Nº Fac Geotecnia','F.Factura','Nº Factura','Euros','Euros con IGIC'];
+  const filas = registros.map(r => [
+    r.numero_obra, r.isla, r.nombre, r.cliente,
+    r.fecha_aceptacion, r.fecha_inicio, r.fecha_fin,
+    r.numero_fac_geotecnia, r.fecha_factura, r.numero_factura,
+    Number(r.euros) || '', Number(r.euros_igic) || ''
+  ]);
+  const datos = [cabecera, ...filas];
+  const ws = XLSX.utils.aoa_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  const nombreHoja = empresaActual === 'obras' ? 'ICINCO Obras' : 'ICINCO Laboratorio';
+  XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `Facturacion_${nombreHoja.replace(' ','_')}_${fecha}.xlsx`);
+}
+
+/* ============ INIT ============ */
+cargarDatos();
+</script>
+</body>
+</html>

@@ -125,6 +125,7 @@
   #tab-planificacion iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
   #tab-kanban iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
   #tab-rendimiento iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
+  #tab-facturacion iframe { width:100%; height:calc(100vh - 110px); border:none; display:block; }
 
 </style>
 </head>
@@ -164,6 +165,7 @@
     <button class="nav-tab" onclick="switchTab('planificacion',this)">🗓️ Planificación Sondistas</button>
     <button class="nav-tab" onclick="switchTab('kanban',this)">📌 Kanban de Obras</button>
     <button class="nav-tab" onclick="switchTab('rendimiento',this)">📈 Rendimiento e Incentivos</button>
+    <button class="nav-tab" onclick="switchTab('facturacion',this)">💰 Facturación</button>
   </div>
 
   <!-- Partes -->
@@ -260,6 +262,11 @@
   <!-- Rendimiento e incentivos: iframe independiente -->
   <div id="tab-rendimiento" class="tab-panel">
     <iframe id="rendimiento-iframe" src="" title="Rendimiento e Incentivos"></iframe>
+  </div>
+
+  <!-- Facturación: iframe independiente -->
+  <div id="tab-facturacion" class="tab-panel">
+    <iframe id="facturacion-iframe" src="" title="Facturación"></iframe>
   </div>
 
 <!-- Modal editar -->
@@ -716,6 +723,13 @@ function switchTab(tab, btn) {
     const ifr = document.getElementById('rendimiento-iframe');
     if (!ifr.src || ifr.src === window.location.href) {
       ifr.src = 'rendimiento_incentivos.html?v=' + Date.now();
+    }
+  }
+  // Cargar iframe de facturación la primera vez
+  if (tab === 'facturacion') {
+    const ifr = document.getElementById('facturacion-iframe');
+    if (!ifr.src || ifr.src === window.location.href) {
+      ifr.src = 'facturacion.html?v=' + Date.now();
     }
   }
 }
