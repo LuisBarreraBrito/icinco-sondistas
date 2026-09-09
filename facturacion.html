@@ -92,6 +92,7 @@
   }
   table.fact tr.fila-dato:hover { background: #f5f8fb; cursor: pointer; }
   table.fact td.num { text-align: right; }
+  table.fact td.check { text-align: center; }
 
   /* Modal */
   .overlay {
@@ -180,7 +181,8 @@
     <div class="row3">
       <div>
         <label>Nº Obra</label>
-        <input type="text" id="f_numero_obra">
+        <input type="text" id="f_numero_obra" list="obrasDatalist" oninput="autocompletarObra()">
+        <datalist id="obrasDatalist"></datalist>
       </div>
       <div>
         <label>Isla</label>
@@ -229,6 +231,10 @@
         <input type="number" step="0.01" id="f_euros_igic">
       </div>
     </div>
+    <div class="checkbox-row" style="display:flex;align-items:center;gap:6px;margin-top:14px;">
+      <input type="checkbox" id="f_cobrado" style="width:auto;">
+      <label style="margin:0">Cobrado</label>
+    </div>
 
     <div class="modal-actions">
       <div class="left">
@@ -250,6 +256,7 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 /* ============ ESTADO ============ */
 let empresaActual = 'obras';
 let registros = [];
+let obrasKanban = []; // [{codigo, descripcion}] — para autocompletar Nombre al escribir el Nº de obra
 let islas = ['Tenerife','Gran Canaria','La Palma','La Gomera','El Hierro','Fuerteventura','Lanzarote'];
 
 /* ============ CARGA DE DATOS ============ */
@@ -268,6 +275,8 @@ async function cargarDatos() {
     const data = await res.json();
     registros = data.registros || [];
     if (data.islas && data.islas.length) islas = data.islas;
+    obrasKanban = data.obras || [];
+    poblarDatalistObras();
     render();
     document.getElementById('status').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
   } catch (err) {
@@ -311,8 +320,7 @@ function render() {
     <th>Nº Obra</th><th>Isla</th><th>Nombre</th><th>Cliente</th>
     <th>F.Aceptación</th><th>F.Inicio</th><th>F.Fin</th>
     <th>Nº Fac Geot.</th><th>F.Factura</th><th>Nº Factura</th>
-    <th>Euros</th><th>Euros IGIC</th>
-  </tr>`;
+    <th>Euros</th><th>Euros IGIC</th><th>Cobrado</th></tr>`;
   tabla.innerHTML = cabecera;
 
   // Agrupar por año-mes de fecha_factura; sin fecha_factura → grupo "Sin facturar"
@@ -339,7 +347,7 @@ function render() {
 
     const trMes = document.createElement('tr');
     trMes.className = 'mes-header';
-    trMes.innerHTML = `<td colspan="12">${etiqueta}</td>`;
+    trMes.innerHTML = `<td colspan="13">${etiqueta}</td>`;
     tabla.appendChild(trMes);
 
     let totalEuros = 0, totalIgic = 0;
@@ -354,15 +362,25 @@ function render() {
         <td>${r.numero_fac_geotecnia}</td><td>${r.fecha_factura}</td><td>${r.numero_factura}</td>
         <td class="num">${r.euros ? Number(r.euros).toFixed(2) : ''}</td>
         <td class="num">${r.euros_igic ? Number(r.euros_igic).toFixed(2) : ''}</td>
+        <td class="check"><input type="checkbox" ${r.cobrado === 'SI' ? 'checked' : ''}></td>
       `;
-      tr.onclick = () => abrirModal(r);
+      tr.querySelector('td:first-child').parentElement.onclick = (ev) => {
+        // Si el clic viene del checkbox, solo cambiamos 'cobrado'; si no, abrimos el modal completo.
+        if (ev.target.tagName === 'INPUT') return;
+        abrirModal(r);
+      };
+      const chk = tr.querySelector('input[type="checkbox"]');
+      chk.onclick = (ev) => {
+        ev.stopPropagation();
+        toggleCobrado(r, chk.checked);
+      };
       tabla.appendChild(tr);
     });
 
     const trTotal = document.createElement('tr');
     trTotal.className = 'mes-total';
     trTotal.innerHTML = `<td colspan="10">TOTAL ${etiqueta}</td>
-      <td class="num">${totalEuros.toFixed(2)}</td><td class="num">${totalIgic.toFixed(2)}</td>`;
+      <td class="num">${totalEuros.toFixed(2)}</td><td class="num">${totalIgic.toFixed(2)}</td><td></td>`;
     tabla.appendChild(trTotal);
 
     totalGeneralEuros += totalEuros;
@@ -372,14 +390,42 @@ function render() {
   const trGranTotal = document.createElement('tr');
   trGranTotal.className = 'mes-header';
   trGranTotal.innerHTML = `<td colspan="10">TOTAL ${empresaActual === 'obras' ? 'ICINCO OBRAS' : 'ICINCO LABORATORIO'}</td>
-    <td class="num">${totalGeneralEuros.toFixed(2)}</td><td class="num">${totalGeneralIgic.toFixed(2)}</td>`;
+    <td class="num">${totalGeneralEuros.toFixed(2)}</td><td class="num">${totalGeneralIgic.toFixed(2)}</td><td></td>`;
   tabla.appendChild(trGranTotal);
+}
+
+function toggleCobrado(r, marcado) {
+  const data = {
+    numero_obra: r.numero_obra, isla: r.isla, nombre: r.nombre, cliente: r.cliente,
+    fecha_aceptacion: r.fecha_aceptacion, fecha_inicio: r.fecha_inicio, fecha_fin: r.fecha_fin,
+    numero_fac_geotecnia: r.numero_fac_geotecnia, fecha_factura: r.fecha_factura,
+    numero_factura: r.numero_factura, euros: r.euros, euros_igic: r.euros_igic,
+    cobrado: marcado ? 'SI' : 'NO'
+  };
+  enviarAccion({ action: 'editarFacturacion', id: r.id, data });
 }
 
 /* ============ MODAL ============ */
 function poblarIslas() {
   document.getElementById('f_isla').innerHTML =
     '<option value="">—</option>' + islas.map(i => `<option value="${i}">${i}</option>`).join('');
+}
+
+function poblarDatalistObras() {
+  document.getElementById('obrasDatalist').innerHTML =
+    obrasKanban.map(o => `<option value="${o.codigo}">${o.descripcion}</option>`).join('');
+}
+
+// Al escribir/seleccionar un Nº de obra que existe en el Kanban, rellena el
+// Nombre automáticamente (la Isla no se guarda en el Kanban, esa se sigue
+// poniendo a mano). Si el código no coincide con ninguna obra, no hace nada
+// — sigues pudiendo escribir libremente obras antiguas que no estén en el Kanban.
+function autocompletarObra() {
+  const codigo = document.getElementById('f_numero_obra').value.trim();
+  const obra = obrasKanban.find(o => o.codigo === codigo);
+  if (obra) {
+    document.getElementById('f_nombre').value = obra.descripcion;
+  }
 }
 
 function autocalcularIGIC() {
@@ -406,6 +452,7 @@ function abrirModal(r) {
   document.getElementById('f_numero_factura').value = esNuevo ? '' : (r.numero_factura || '');
   document.getElementById('f_euros').value = esNuevo ? '' : (r.euros || '');
   document.getElementById('f_euros_igic').value = esNuevo ? '' : (r.euros_igic || '');
+  document.getElementById('f_cobrado').checked = !esNuevo && r.cobrado === 'SI';
   document.getElementById('btnBorrar').style.display = esNuevo ? 'none' : 'inline-block';
   document.getElementById('overlay').classList.add('open');
 }
@@ -428,7 +475,8 @@ function guardarRegistro() {
     fecha_factura: document.getElementById('f_fecha_factura').value,
     numero_factura: document.getElementById('f_numero_factura').value.trim(),
     euros: document.getElementById('f_euros').value,
-    euros_igic: document.getElementById('f_euros_igic').value
+    euros_igic: document.getElementById('f_euros_igic').value,
+    cobrado: document.getElementById('f_cobrado').checked ? 'SI' : 'NO'
   };
   if (!data.numero_obra) { alert('El Nº de obra es obligatorio.'); return; }
   if (APPS_SCRIPT_URL.includes('PEGA_AQUI')) {
@@ -454,12 +502,12 @@ function borrarRegistro() {
 /* ============ EXPORTAR A EXCEL ============ */
 function exportarExcel() {
   const cabecera = ['Nº Obra','Isla','Nombre','Cliente','F.Aceptación','F.Inicio','F.Fin',
-    'Nº Fac Geotecnia','F.Factura','Nº Factura','Euros','Euros con IGIC'];
+    'Nº Fac Geotecnia','F.Factura','Nº Factura','Euros','Euros con IGIC','Cobrado'];
   const filas = registros.map(r => [
     r.numero_obra, r.isla, r.nombre, r.cliente,
     r.fecha_aceptacion, r.fecha_inicio, r.fecha_fin,
     r.numero_fac_geotecnia, r.fecha_factura, r.numero_factura,
-    Number(r.euros) || '', Number(r.euros_igic) || ''
+    Number(r.euros) || '', Number(r.euros_igic) || '', r.cobrado === 'SI' ? 'SÍ' : 'NO'
   ]);
   const datos = [cabecera, ...filas];
   const ws = XLSX.utils.aoa_to_sheet(datos);
