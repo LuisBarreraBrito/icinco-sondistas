@@ -88,6 +88,18 @@
     background: var(--gris-fondo);
     white-space: nowrap;
   }
+  table.rendimiento td.nombre .etiqueta-fila {
+    display: block;
+    font-weight: normal;
+    font-size: 10.5px;
+    color: #6b7280;
+  }
+  table.rendimiento tr.fila-calculo td.nombre {
+    background: #eef2f7;
+  }
+  table.rendimiento tr.fila-real td { border-bottom: none; }
+  table.rendimiento tr.fila-calculo td { border-top: none; }
+  table.rendimiento tr.grupo-separador td { border-top: 2px solid var(--azul); }
   table.rendimiento td.total {
     font-weight: bold;
     background: #fff8e1;
@@ -113,6 +125,10 @@
 <div class="wrap">
   <div id="configWarning"></div>
   <div class="status" id="status">Cargando…</div>
+  <div class="config-warning" style="background:#eaf1fa; border-color:#c9dcf0; color:#1F3864;">
+    <b>Metros reales</b> = metros de sondeo + (metros de barrena + DPSH) / 5.<br>
+    <b>Metros de cálculo</b> = igual que los reales, pero los metros hechos con la <b>TP-30</b> se multiplican ×1.3 (menor rendimiento de esa máquina).
+  </div>
 
   <h2 class="seccion">Metros por semana — Sondistas</h2>
   <div class="tabla-scroll"><table class="rendimiento" id="tablaSondistas"></table></div>
@@ -126,7 +142,7 @@
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfNGxUvOPMd2q6EVSFIPUa1FzFwBJnrlWrg_gf43QYU0CikURfFcHE-I8f-TWuMnoAKQ/exec";
 
 /* ============ ESTADO ============ */
-let partes = [];      // [{fecha, sondista, ayudante, obra, metros, tipo}]
+let partes = [];      // [{fecha, sondista, ayudante, obra, maquina, metros, tipo}]
 let sondistas = [];
 let ayudantes = [];
 let mesActual = new Date();
@@ -207,12 +223,37 @@ function etiquetaSemana(semana) {
   return `${f(ini)}–${f(fin)}`;
 }
 
-/* ============ AGREGACIÓN ============ */
-// Suma metros de 'partes' para una persona (sondista o ayudante) dentro de un rango de fechas ISO inclusive
-function sumaMetros(campo, nombre, fechaIniISO, fechaFinISO) {
+/* ============ CÁLCULO DE INCENTIVOS ============ */
+// Metros "equivalentes" de un parte: sondeo se cuenta tal cual; barrena y DPSH, entre 5
+// (menor rendimiento de esas técnicas frente al sondeo a rotación).
+function metrosEquivalentes(p) {
+  const tipo = (p.tipo || '').toString().trim().toLowerCase();
+  const metros = Number(p.metros) || 0;
+  if (tipo === 'barrena' || tipo === 'dpsh') return metros / 5;
+  return metros;
+}
+
+// La TP-30 tiene menor rendimiento que el resto de sondas: los metros hechos con ella
+// se multiplican por 1.3 solo en la fila de "metros de cálculo".
+function esMaquinaTP30(p) {
+  const maq = (p.maquina || '').toString().toUpperCase().replace(/\s+/g, '');
+  return maq.includes('TP-30') || maq.includes('TP30');
+}
+
+// Suma de 'partes' para una persona (sondista o ayudante) dentro de un rango de fechas ISO inclusive
+function sumaMetrosReales(campo, nombre, fechaIniISO, fechaFinISO) {
   return partes
     .filter(p => p[campo] === nombre && p.fecha >= fechaIniISO && p.fecha <= fechaFinISO)
-    .reduce((acc, p) => acc + (Number(p.metros) || 0), 0);
+    .reduce((acc, p) => acc + metrosEquivalentes(p), 0);
+}
+
+function sumaMetrosCalculo(campo, nombre, fechaIniISO, fechaFinISO) {
+  return partes
+    .filter(p => p[campo] === nombre && p.fecha >= fechaIniISO && p.fecha <= fechaFinISO)
+    .reduce((acc, p) => {
+      const eq = metrosEquivalentes(p);
+      return acc + (esMaquinaTP30(p) ? eq * 1.3 : eq);
+    }, 0);
 }
 
 /* ============ RENDER ============ */
@@ -243,37 +284,62 @@ function renderTabla(tablaId, campo, personas, semanas, primerDiaISO, ultimoDiaI
   tabla.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  const totalesSemana = semanas.map(() => 0);
-  let totalGeneral = 0;
+  const totalesSemanaReal = semanas.map(() => 0);
+  const totalesSemanaCalculo = semanas.map(() => 0);
+  let totalGeneralReal = 0;
+  let totalGeneralCalculo = 0;
 
   personas.forEach(persona => {
-    const tr = document.createElement('tr');
-    let fila = `<td class="nombre">${persona}</td>`;
+    // Fila "Metros reales"
+    const trReal = document.createElement('tr');
+    trReal.className = 'grupo-separador fila-real';
+    let filaReal = `<td class="nombre">${persona}<span class="etiqueta-fila">Metros reales</span></td>`;
+
+    // Fila "Metros de cálculo"
+    const trCalculo = document.createElement('tr');
+    trCalculo.className = 'fila-calculo';
+    let filaCalculo = `<td class="nombre">${persona}<span class="etiqueta-fila">Metros de cálculo</span></td>`;
 
     semanas.forEach((semana, idx) => {
       const ini = toISO(semana[0]);
       const fin = toISO(semana[6]);
-      const metros = sumaMetros(campo, persona, ini, fin);
-      totalesSemana[idx] += metros;
-      fila += `<td>${metros ? metros.toFixed(1) : '—'}</td>`;
+      const mReal = sumaMetrosReales(campo, persona, ini, fin);
+      const mCalculo = sumaMetrosCalculo(campo, persona, ini, fin);
+      totalesSemanaReal[idx] += mReal;
+      totalesSemanaCalculo[idx] += mCalculo;
+      filaReal += `<td>${mReal ? mReal.toFixed(1) : '—'}</td>`;
+      filaCalculo += `<td>${mCalculo ? mCalculo.toFixed(1) : '—'}</td>`;
     });
 
-    const totalMes = sumaMetros(campo, persona, primerDiaISO, ultimoDiaISO);
-    totalGeneral += totalMes;
-    fila += `<td class="total">${totalMes ? totalMes.toFixed(1) : '—'}</td>`;
+    const totalMesReal = sumaMetrosReales(campo, persona, primerDiaISO, ultimoDiaISO);
+    const totalMesCalculo = sumaMetrosCalculo(campo, persona, primerDiaISO, ultimoDiaISO);
+    totalGeneralReal += totalMesReal;
+    totalGeneralCalculo += totalMesCalculo;
+    filaReal += `<td class="total">${totalMesReal ? totalMesReal.toFixed(1) : '—'}</td>`;
+    filaCalculo += `<td class="total">${totalMesCalculo ? totalMesCalculo.toFixed(1) : '—'}</td>`;
 
-    tr.innerHTML = fila;
-    tbody.appendChild(tr);
+    trReal.innerHTML = filaReal;
+    trCalculo.innerHTML = filaCalculo;
+    tbody.appendChild(trReal);
+    tbody.appendChild(trCalculo);
   });
 
   tabla.appendChild(tbody);
 
   const tfoot = document.createElement('tfoot');
-  const trFoot = document.createElement('tr');
-  trFoot.innerHTML = '<td>Total semana</td>' +
-    totalesSemana.map(t => `<td>${t ? t.toFixed(1) : '—'}</td>`).join('') +
-    `<td>${totalGeneral ? totalGeneral.toFixed(1) : '—'}</td>`;
-  tfoot.appendChild(trFoot);
+
+  const trFootReal = document.createElement('tr');
+  trFootReal.innerHTML = '<td>Total semana (reales)</td>' +
+    totalesSemanaReal.map(t => `<td>${t ? t.toFixed(1) : '—'}</td>`).join('') +
+    `<td>${totalGeneralReal ? totalGeneralReal.toFixed(1) : '—'}</td>`;
+  tfoot.appendChild(trFootReal);
+
+  const trFootCalculo = document.createElement('tr');
+  trFootCalculo.innerHTML = '<td>Total semana (cálculo)</td>' +
+    totalesSemanaCalculo.map(t => `<td>${t ? t.toFixed(1) : '—'}</td>`).join('') +
+    `<td>${totalGeneralCalculo ? totalGeneralCalculo.toFixed(1) : '—'}</td>`;
+  tfoot.appendChild(trFootCalculo);
+
   tabla.appendChild(tfoot);
 }
 
