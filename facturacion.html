@@ -224,11 +224,11 @@
       </div>
       <div>
         <label>Euros</label>
-        <input type="number" step="0.01" id="f_euros" onchange="autocalcularIGIC()">
+        <input type="text" inputmode="decimal" placeholder="2183.30" id="f_euros" onchange="autocalcularIGIC()">
       </div>
       <div>
         <label>Euros con IGIC</label>
-        <input type="number" step="0.01" id="f_euros_igic">
+        <input type="text" inputmode="decimal" placeholder="2336.13" id="f_euros_igic">
       </div>
     </div>
     <div class="checkbox-row" style="display:flex;align-items:center;gap:6px;margin-top:14px;">
@@ -472,8 +472,8 @@ function abrirModal(r) {
   document.getElementById('f_numero_fac_geotecnia').value = esNuevo ? '' : (r.numero_fac_geotecnia || '');
   document.getElementById('f_fecha_factura').value = esNuevo ? '' : (r.fecha_factura || '');
   document.getElementById('f_numero_factura').value = esNuevo ? '' : (r.numero_factura || '');
-  document.getElementById('f_euros').value = esNuevo ? '' : (r.euros || '');
-  document.getElementById('f_euros_igic').value = esNuevo ? '' : (r.euros_igic || '');
+  document.getElementById('f_euros').value = esNuevo ? '' : (parseNumeroEuros(r.euros) || r.euros || '');
+  document.getElementById('f_euros_igic').value = esNuevo ? '' : (parseNumeroEuros(r.euros_igic) || r.euros_igic || '');
   document.getElementById('f_cobrado').checked = !esNuevo && r.cobrado === 'SI';
   document.getElementById('btnBorrar').style.display = esNuevo ? 'none' : 'inline-block';
   document.getElementById('overlay').classList.add('open');
