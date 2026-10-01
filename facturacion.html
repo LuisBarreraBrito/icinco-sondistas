@@ -253,6 +253,25 @@ const IGIC = 0.07; // Canarias, tipo general — ajustable si algún registro ll
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+// Convierte a número tanto "2336.13" (punto decimal) como "2.336,13" o "2336,13"
+// (formato español, coma decimal) — evita los NaN cuando un importe quedó guardado
+// en la hoja con el separador decimal español en vez de con punto.
+function parseNumeroEuros(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  let s = val.toString().trim();
+  if (s === '') return 0;
+  if (s.includes(',') && s.includes('.')) {
+    // Formato español con miles: "2.336,13" → quitar puntos de miles, coma a punto decimal
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.includes(',')) {
+    // Solo coma: es el separador decimal → "2336,13" → "2336.13"
+    s = s.replace(',', '.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
 /* ============ ESTADO ============ */
 let empresaActual = 'obras';
 let registros = [];
@@ -352,16 +371,18 @@ function render() {
 
     let totalEuros = 0, totalIgic = 0;
     filas.forEach(r => {
-      totalEuros += Number(r.euros) || 0;
-      totalIgic += Number(r.euros_igic) || 0;
+      const euros = parseNumeroEuros(r.euros);
+      const eurosIgic = parseNumeroEuros(r.euros_igic);
+      totalEuros += euros;
+      totalIgic += eurosIgic;
       const tr = document.createElement('tr');
       tr.className = 'fila-dato';
       tr.innerHTML = `
         <td>${r.numero_obra}</td><td>${r.isla}</td><td>${r.nombre}</td><td>${r.cliente}</td>
         <td>${r.fecha_aceptacion}</td><td>${r.fecha_inicio}</td><td>${r.fecha_fin}</td>
         <td>${r.numero_fac_geotecnia}</td><td>${r.fecha_factura}</td><td>${r.numero_factura}</td>
-        <td class="num">${r.euros ? Number(r.euros).toFixed(2) : ''}</td>
-        <td class="num">${r.euros_igic ? Number(r.euros_igic).toFixed(2) : ''}</td>
+        <td class="num">${euros ? euros.toFixed(2) : ''}</td>
+        <td class="num">${eurosIgic ? eurosIgic.toFixed(2) : ''}</td>
         <td class="check"><input type="checkbox" ${r.cobrado === 'SI' ? 'checked' : ''}></td>
       `;
       tr.querySelector('td:first-child').parentElement.onclick = (ev) => {
@@ -399,7 +420,8 @@ function toggleCobrado(r, marcado) {
     numero_obra: r.numero_obra, isla: r.isla, nombre: r.nombre, cliente: r.cliente,
     fecha_aceptacion: r.fecha_aceptacion, fecha_inicio: r.fecha_inicio, fecha_fin: r.fecha_fin,
     numero_fac_geotecnia: r.numero_fac_geotecnia, fecha_factura: r.fecha_factura,
-    numero_factura: r.numero_factura, euros: r.euros, euros_igic: r.euros_igic,
+    numero_factura: r.numero_factura,
+    euros: parseNumeroEuros(r.euros) || '', euros_igic: parseNumeroEuros(r.euros_igic) || '',
     cobrado: marcado ? 'SI' : 'NO'
   };
   enviarAccion({ action: 'editarFacturacion', id: r.id, data });
@@ -429,8 +451,8 @@ function autocompletarObra() {
 }
 
 function autocalcularIGIC() {
-  const euros = parseFloat(document.getElementById('f_euros').value);
-  if (!isNaN(euros) && !document.getElementById('f_euros_igic').value) {
+  const euros = parseNumeroEuros(document.getElementById('f_euros').value);
+  if (euros && !document.getElementById('f_euros_igic').value) {
     document.getElementById('f_euros_igic').value = (euros * (1 + IGIC)).toFixed(2);
   }
 }
@@ -474,8 +496,11 @@ function guardarRegistro() {
     numero_fac_geotecnia: document.getElementById('f_numero_fac_geotecnia').value.trim(),
     fecha_factura: document.getElementById('f_fecha_factura').value,
     numero_factura: document.getElementById('f_numero_factura').value.trim(),
-    euros: document.getElementById('f_euros').value,
-    euros_igic: document.getElementById('f_euros_igic').value,
+    // Normalizamos siempre a número con punto antes de guardar, da igual cómo se haya
+    // escrito (con coma, con puntos de miles, etc.) — así no se vuelven a guardar
+    // importes en un formato que luego la app no sepa leer.
+    euros: parseNumeroEuros(document.getElementById('f_euros').value) || '',
+    euros_igic: parseNumeroEuros(document.getElementById('f_euros_igic').value) || '',
     cobrado: document.getElementById('f_cobrado').checked ? 'SI' : 'NO'
   };
   if (!data.numero_obra) { alert('El Nº de obra es obligatorio.'); return; }
@@ -507,7 +532,7 @@ function exportarExcel() {
     r.numero_obra, r.isla, r.nombre, r.cliente,
     r.fecha_aceptacion, r.fecha_inicio, r.fecha_fin,
     r.numero_fac_geotecnia, r.fecha_factura, r.numero_factura,
-    Number(r.euros) || '', Number(r.euros_igic) || '', r.cobrado === 'SI' ? 'SÍ' : 'NO'
+    parseNumeroEuros(r.euros) || '', parseNumeroEuros(r.euros_igic) || '', r.cobrado === 'SI' ? 'SÍ' : 'NO'
   ]);
   const datos = [cabecera, ...filas];
   const ws = XLSX.utils.aoa_to_sheet(datos);
